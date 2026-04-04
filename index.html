@@ -50,7 +50,8 @@
   #fileInput { display: none; }
 
   /* Table */
-  .table-wrap { background: white; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); overflow: hidden; }
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .table-wrap { background: white; border-radius: 12px; overflow: hidden; min-width: 600px; }
   .table-wrap table { width: 100%; border-collapse: collapse; }
   .table-wrap th { background: #1e3a5f; color: white; padding: 10px 12px; text-align: center; font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
   .table-wrap th.left { text-align: left; }
@@ -68,17 +69,80 @@
   .badge-district { color: #553c9a; font-weight: 500; }
   .no-data { text-align: center; padding: 60px 20px; color: #a0aec0; font-size: 1rem; }
 
+  /* Mobile Card View */
+  .card-list { display: none; flex-direction: column; gap: 10px; }
+  .data-card { background: white; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); border-left: 4px solid #2d6a9f; }
+  .data-card.has-customer { border-left-color: #f6ad55; background: #fffbeb; }
+  .data-card .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; gap: 8px; }
+  .data-card .card-title { font-weight: 700; font-size: 0.95rem; color: #1a202c; line-height: 1.4; }
+  .data-card .card-subtitle { font-size: 0.78rem; color: #718096; margin-top: 3px; }
+  .card-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+  .card-prices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .price-box { background: #f7fafc; border-radius: 8px; padding: 8px 10px; }
+  .price-box .pb-label { font-size: 0.68rem; color: #718096; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 4px; }
+  .price-box .pb-old { font-size: 0.78rem; color: #a0aec0; text-decoration: line-through; }
+  .price-box .pb-new { font-size: 1.05rem; font-weight: 700; color: #276749; }
+  .price-box.blue { background: #ebf8ff; }
+  .price-box.green { background: #f0fff4; }
+  .card-meta { margin-top: 8px; font-size: 0.75rem; color: #718096; display: flex; gap: 12px; flex-wrap: wrap; }
+  .card-no-data { text-align: center; padding: 40px 20px; color: #a0aec0; background: white; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+
   /* Upload status */
   .upload-status { padding: 10px 16px; border-radius: 8px; margin-bottom: 14px; font-size: 0.85rem; display: none; }
   .upload-status.success { background: #c6f6d5; color: #276749; display: block; }
   .upload-status.error { background: #fed7d7; color: #c53030; display: block; }
 
-  /* Responsive */
+  /* ===== RESPONSIVE MOBILE ===== */
   @media (max-width: 768px) {
-    .header { flex-direction: column; gap: 10px; }
-    .summary-bar { gap: 8px; }
-    .stat-card { min-width: 120px; }
-    .main { padding: 14px; }
+    /* Header */
+    .header { flex-direction: column; gap: 8px; padding: 14px 16px; }
+    .header-left h1 { font-size: 1.1rem; }
+    .header-right { flex-wrap: wrap; gap: 6px; }
+    .diesel-badge, .update-badge { font-size: 0.72rem; padding: 4px 10px; }
+
+    /* Summary bar - 2 col grid scroll */
+    .summary-bar { padding: 10px 14px; gap: 8px; display: grid; grid-template-columns: repeat(3, 1fr); overflow-x: auto; }
+    .stat-card { min-width: unset; padding: 8px 6px; }
+    .stat-card .num { font-size: 1.2rem; }
+    .stat-card .lbl { font-size: 0.65rem; }
+
+    /* Tab bar - scrollable */
+    .tab-bar { padding: 0 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; gap: 0; }
+    .tab-bar::-webkit-scrollbar { display: none; }
+    .tab-btn { padding: 10px 14px; font-size: 0.8rem; white-space: nowrap; flex-shrink: 0; }
+
+    /* Main */
+    .main { padding: 12px 12px; }
+
+    /* Filter bar - stack vertically */
+    .filter-bar { flex-direction: column; gap: 8px; align-items: stretch; }
+    .filter-group select, .filter-group input { min-width: unset; width: 100%; font-size: 1rem; padding: 10px 12px; }
+    .filter-group { width: 100%; }
+    .reset-btn { width: 100%; padding: 10px; font-size: 0.9rem; }
+    .search-count { text-align: center; padding-bottom: 0; }
+    .upload-area { width: 100%; margin-left: 0; }
+    .upload-btn { width: 100%; justify-content: center; padding: 11px 18px; font-size: 0.92rem; }
+
+    /* Tables - hide on mobile, show cards */
+    .table-scroll { display: none !important; }
+    .card-list { display: flex; }
+
+    /* Pagination compact */
+    .pagination { flex-wrap: wrap; gap: 6px; padding: 10px; }
+    .page-btn { padding: 7px 11px; font-size: 0.82rem; min-width: 36px; }
+
+    /* Modal full screen on mobile */
+    .modal { width: 95%; padding: 20px 16px; margin: 10px; border-radius: 12px; max-height: 90vh; overflow-y: auto; }
+    .modal h3 { font-size: 1rem; }
+    .drop-zone { padding: 20px; }
+
+    /* Upload status */
+    .upload-status { font-size: 0.8rem; }
+  }
+
+  @media (max-width: 400px) {
+    .summary-bar { grid-template-columns: repeat(2, 1fr); }
+    .header-left h1 { font-size: 1rem; }
   }
 
   /* Pagination */
@@ -165,33 +229,36 @@
         </button>
       </div>
     </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th class="left" style="width:40px">#</th>
-            <th class="left">จังหวัด</th>
-            <th class="left">อำเภอ / เขต</th>
-            <th class="left">สถานที่จัดส่ง / ลูกค้า</th>
-            <th>ระยะทาง (กม.)</th>
-            <th colspan="2" style="background:#1a5276">รถ 4 ล้อ (บาท/กก.)</th>
-            <th colspan="2" style="background:#145a32">รถ 6-10 ล้อ (บาท/กก.)</th>
-            <th>หมายเหตุ</th>
-          </tr>
-          <tr>
-            <th colspan="5" style="height:2px;padding:0;background:#1e3a5f"></th>
-            <th style="background:#1a5276;font-size:0.72rem;padding:6px">ราคาเดิม</th>
-            <th style="background:#1a5276;font-size:0.72rem;padding:6px">ราคาใหม่</th>
-            <th style="background:#145a32;font-size:0.72rem;padding:6px">ราคาเดิม</th>
-            <th style="background:#145a32;font-size:0.72rem;padding:6px">ราคาใหม่</th>
-            <th style="height:2px;padding:0;background:#1e3a5f"></th>
-          </tr>
-        </thead>
-        <tbody id="provinceTableBody">
-          <tr><td colspan="10" class="no-data">กำลังโหลดข้อมูล...</td></tr>
-        </tbody>
-      </table>
+    <div class="table-scroll">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="left" style="width:40px">#</th>
+              <th class="left">จังหวัด</th>
+              <th class="left">อำเภอ / เขต</th>
+              <th class="left">สถานที่จัดส่ง / ลูกค้า</th>
+              <th>ระยะทาง (กม.)</th>
+              <th colspan="2" style="background:#1a5276">รถ 4 ล้อ (บาท/กก.)</th>
+              <th colspan="2" style="background:#145a32">รถ 6-10 ล้อ (บาท/กก.)</th>
+              <th>หมายเหตุ</th>
+            </tr>
+            <tr>
+              <th colspan="5" style="height:2px;padding:0;background:#1e3a5f"></th>
+              <th style="background:#1a5276;font-size:0.72rem;padding:6px">ราคาเดิม</th>
+              <th style="background:#1a5276;font-size:0.72rem;padding:6px">ราคาใหม่</th>
+              <th style="background:#145a32;font-size:0.72rem;padding:6px">ราคาเดิม</th>
+              <th style="background:#145a32;font-size:0.72rem;padding:6px">ราคาใหม่</th>
+              <th style="height:2px;padding:0;background:#1e3a5f"></th>
+            </tr>
+          </thead>
+          <tbody id="provinceTableBody">
+            <tr><td colspan="10" class="no-data">กำลังโหลดข้อมูล...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
+    <div class="card-list" id="provinceCardList"></div>
     <div class="pagination" id="provincePagination"></div>
   </div>
 
@@ -211,27 +278,30 @@
         </button>
       </div>
     </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th style="width:40px">#</th>
-            <th class="left">ชื่อฟาร์ม / สถานที่จัดส่ง</th>
-            <th>ระยะทาง (กม.)</th>
-            <th colspan="3" style="background:#145a32">รถ 6-10 ล้อ (บาท/กก.)</th>
-            <th>หมายเหตุ</th>
-          </tr>
-          <tr>
-            <th colspan="3" style="height:2px;padding:0;background:#1e3a5f"></th>
-            <th style="background:#145a32;font-size:0.72rem;padding:6px">ราคาเดิม</th>
-            <th style="background:#145a32;font-size:0.72rem;padding:6px">ราคาใหม่</th>
-            <th style="background:#1a7a47;font-size:0.72rem;padding:6px">ส่วนต่าง</th>
-            <th style="height:2px;padding:0;background:#1e3a5f"></th>
-          </tr>
-        </thead>
-        <tbody id="farmTableBody"></tbody>
-      </table>
+    <div class="table-scroll">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:40px">#</th>
+              <th class="left">ชื่อฟาร์ม / สถานที่จัดส่ง</th>
+              <th>ระยะทาง (กม.)</th>
+              <th colspan="3" style="background:#145a32">รถ 6-10 ล้อ (บาท/กก.)</th>
+              <th>หมายเหตุ</th>
+            </tr>
+            <tr>
+              <th colspan="3" style="height:2px;padding:0;background:#1e3a5f"></th>
+              <th style="background:#145a32;font-size:0.72rem;padding:6px">ราคาเดิม</th>
+              <th style="background:#145a32;font-size:0.72rem;padding:6px">ราคาใหม่</th>
+              <th style="background:#1a7a47;font-size:0.72rem;padding:6px">ส่วนต่าง</th>
+              <th style="height:2px;padding:0;background:#1e3a5f"></th>
+            </tr>
+          </thead>
+          <tbody id="farmTableBody"></tbody>
+        </table>
+      </div>
     </div>
+    <div class="card-list" id="farmCardList"></div>
     <div class="pagination" id="farmPagination"></div>
   </div>
 
@@ -251,31 +321,34 @@
         </button>
       </div>
     </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th style="width:40px">#</th>
-            <th class="left">ชื่อลูกค้า / สถานที่จัดส่ง</th>
-            <th>ระยะทาง</th>
-            <th colspan="3" style="background:#1a5276">รถ 4 ล้อ (บาท/กก.)</th>
-            <th colspan="3" style="background:#145a32">รถ 6-10 ล้อ (บาท/กก.)</th>
-            <th>หมายเหตุ</th>
-          </tr>
-          <tr>
-            <th colspan="3" style="height:2px;padding:0;background:#1e3a5f"></th>
-            <th style="background:#1a5276;font-size:0.72rem;padding:6px">ราคาเดิม</th>
-            <th style="background:#1a5276;font-size:0.72rem;padding:6px">ราคาใหม่</th>
-            <th style="background:#2471a3;font-size:0.72rem;padding:6px">ส่วนต่าง</th>
-            <th style="background:#145a32;font-size:0.72rem;padding:6px">ราคาเดิม</th>
-            <th style="background:#145a32;font-size:0.72rem;padding:6px">ราคาใหม่</th>
-            <th style="background:#1a7a47;font-size:0.72rem;padding:6px">ส่วนต่าง</th>
-            <th style="height:2px;padding:0;background:#1e3a5f"></th>
-          </tr>
-        </thead>
-        <tbody id="customerTableBody"></tbody>
-      </table>
+    <div class="table-scroll">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:40px">#</th>
+              <th class="left">ชื่อลูกค้า / สถานที่จัดส่ง</th>
+              <th>ระยะทาง</th>
+              <th colspan="3" style="background:#1a5276">รถ 4 ล้อ (บาท/กก.)</th>
+              <th colspan="3" style="background:#145a32">รถ 6-10 ล้อ (บาท/กก.)</th>
+              <th>หมายเหตุ</th>
+            </tr>
+            <tr>
+              <th colspan="3" style="height:2px;padding:0;background:#1e3a5f"></th>
+              <th style="background:#1a5276;font-size:0.72rem;padding:6px">ราคาเดิม</th>
+              <th style="background:#1a5276;font-size:0.72rem;padding:6px">ราคาใหม่</th>
+              <th style="background:#2471a3;font-size:0.72rem;padding:6px">ส่วนต่าง</th>
+              <th style="background:#145a32;font-size:0.72rem;padding:6px">ราคาเดิม</th>
+              <th style="background:#145a32;font-size:0.72rem;padding:6px">ราคาใหม่</th>
+              <th style="background:#1a7a47;font-size:0.72rem;padding:6px">ส่วนต่าง</th>
+              <th style="height:2px;padding:0;background:#1e3a5f"></th>
+            </tr>
+          </thead>
+          <tbody id="customerTableBody"></tbody>
+        </table>
+      </div>
     </div>
+    <div class="card-list" id="customerCardList"></div>
     <div class="pagination" id="customerPagination"></div>
   </div>
 </div>
@@ -412,33 +485,66 @@ function renderProvinceTable() {
   const start = (provincePage - 1) * PAGE_SIZE;
   const rows = filtered.slice(start, start + PAGE_SIZE);
 
-  document.getElementById('provinceCount').textContent = `แสดง ${start+1}–${Math.min(start+PAGE_SIZE,total)} จาก ${total} รายการ`;
+  const endIdx = Math.min(start + PAGE_SIZE, total);
+  document.getElementById('provinceCount').textContent = total === 0 ? 'ไม่พบข้อมูล' : `แสดง ${start+1}–${endIdx} จาก ${total} รายการ`;
 
+  const fmt = v => v > 0 ? v.toFixed(2) : '-';
+  const fmtDiff = v => v > 0 ? `+${v.toFixed(2)}` : '';
+
+  // === TABLE (desktop) ===
   const tbody = document.getElementById('provinceTableBody');
   if (rows.length === 0) {
     tbody.innerHTML = '<tr><td colspan="10" class="no-data">ไม่พบข้อมูลที่ค้นหา</td></tr>';
+    document.getElementById('provinceCardList').innerHTML = '<div class="card-no-data">ไม่พบข้อมูลที่ค้นหา</div>';
     document.getElementById('provincePagination').innerHTML = '';
     return;
   }
-
   tbody.innerHTML = rows.map((r, i) => {
     const hasCustomer = r.location && r.location !== '';
     const customerBadge = hasCustomer ? `<span class="customer-tag">ลูกค้า</span>` : '';
     const locationText = hasCustomer ? `<b>${escHtml(r.location)}</b>` : '<span class="zero">-</span>';
-    const fmt = v => v > 0 ? v.toFixed(2) : '<span class="zero">-</span>';
-    const fmtDiff = v => v > 0 ? `<span class="price-diff">+${v.toFixed(2)}</span>` : '';
+    const fmtH = v => v > 0 ? v.toFixed(2) : '<span class="zero">-</span>';
+    const fmtDH = v => v > 0 ? `<span class="price-diff">+${v.toFixed(2)}</span>` : '';
     return `<tr class="${hasCustomer ? 'has-customer' : ''}">
       <td>${start + i + 1}</td>
       <td class="left"><span class="badge-province">${escHtml(r.province)}</span></td>
       <td class="left"><span class="badge-district">${escHtml(r.district)}</span></td>
       <td class="left">${locationText}${customerBadge}</td>
       <td>${r.distance > 0 ? r.distance : '<span class="zero">-</span>'}</td>
-      <td>${fmt(r['4w_old'])}</td>
-      <td class="price-new">${fmt(r['4w_new'])} ${fmtDiff(r['4w_diff'])}</td>
-      <td>${fmt(r['6w_old'])}</td>
-      <td class="price-new">${fmt(r['6w_new'])} ${fmtDiff(r['6w_diff'])}</td>
+      <td>${fmtH(r['4w_old'])}</td>
+      <td class="price-new">${fmtH(r['4w_new'])} ${fmtDH(r['4w_diff'])}</td>
+      <td>${fmtH(r['6w_old'])}</td>
+      <td class="price-new">${fmtH(r['6w_new'])} ${fmtDH(r['6w_diff'])}</td>
       <td class="left" style="font-size:0.78rem;color:#718096">${escHtml(r.note || '')}</td>
     </tr>`;
+  }).join('');
+
+  // === CARDS (mobile) ===
+  const cardList = document.getElementById('provinceCardList');
+  cardList.innerHTML = rows.map((r, i) => {
+    const hasCustomer = r.location && r.location !== '';
+    return `<div class="data-card ${hasCustomer ? 'has-customer' : ''}">
+      <div class="card-header">
+        <div>
+          <div class="card-title">${escHtml(r.district)}${hasCustomer ? ` <span class="customer-tag">ลูกค้า</span>` : ''}</div>
+          ${hasCustomer ? `<div class="card-subtitle">📍 ${escHtml(r.location)}</div>` : ''}
+        </div>
+        <span class="badge-province" style="flex-shrink:0">${escHtml(r.province)}</span>
+      </div>
+      <div class="card-prices">
+        ${r['4w_new'] > 0 ? `<div class="price-box blue">
+          <div class="pb-label">🚛 รถ 4 ล้อ</div>
+          <div class="pb-old">${fmt(r['4w_old'])}</div>
+          <div class="pb-new">${fmt(r['4w_new'])} <small style="color:#e53e3e;font-weight:400">${fmtDiff(r['4w_diff'])}</small></div>
+        </div>` : ''}
+        ${r['6w_new'] > 0 ? `<div class="price-box green">
+          <div class="pb-label">🚚 รถ 6-10 ล้อ</div>
+          <div class="pb-old">${fmt(r['6w_old'])}</div>
+          <div class="pb-new">${fmt(r['6w_new'])} <small style="color:#e53e3e;font-weight:400">${fmtDiff(r['6w_diff'])}</small></div>
+        </div>` : ''}
+      </div>
+      ${r.distance > 0 ? `<div class="card-meta"><span>📏 ระยะทาง ${r.distance} กม.</span>${r.note ? `<span>📝 ${escHtml(r.note)}</span>` : ''}</div>` : ''}
+    </div>`;
   }).join('');
 
   renderPagination('provincePagination', provincePage, totalPages, (p) => { provincePage = p; renderProvinceTable(); });
@@ -458,20 +564,46 @@ function renderFarmTable() {
   const start = (farmPage - 1) * PAGE_SIZE;
   const rows = filtered.slice(start, start + PAGE_SIZE);
 
-  document.getElementById('farmCount').textContent = `แสดง ${start+1}–${Math.min(start+PAGE_SIZE,total)} จาก ${total} รายการ`;
+  const endIdx = Math.min(start + PAGE_SIZE, total);
+  document.getElementById('farmCount').textContent = total === 0 ? 'ไม่พบข้อมูล' : `แสดง ${start+1}–${endIdx} จาก ${total} รายการ`;
 
+  const fmt = v => v > 0 ? v.toFixed(2) : '-';
+  const fmtH = v => v > 0 ? v.toFixed(2) : '<span class="zero">-</span>';
+  const fmtDiff = v => v > 0 ? `+${v.toFixed(2)}` : '';
+  const fmtDH = v => v > 0 ? `<span class="price-diff">+${v.toFixed(2)}</span>` : '';
+
+  // TABLE
   const tbody = document.getElementById('farmTableBody');
-  const fmt = v => v > 0 ? v.toFixed(2) : '<span class="zero">-</span>';
-  const fmtDiff = v => v > 0 ? `<span class="price-diff">+${v.toFixed(2)}</span>` : '';
   tbody.innerHTML = rows.map((r, i) => `<tr>
     <td>${start + i + 1}</td>
     <td class="left"><b>${escHtml(r.name)}</b></td>
     <td>${r.distance > 0 ? r.distance : '<span class="zero">-</span>'}</td>
-    <td>${fmt(r['6w_old'])}</td>
-    <td class="price-new">${fmt(r['6w_new'])}</td>
-    <td>${fmtDiff(r['6w_diff'])}</td>
+    <td>${fmtH(r['6w_old'])}</td>
+    <td class="price-new">${fmtH(r['6w_new'])}</td>
+    <td>${fmtDH(r['6w_diff'])}</td>
     <td class="left" style="font-size:0.78rem;color:#718096">${escHtml(r.note || '')}</td>
   </tr>`).join('') || '<tr><td colspan="7" class="no-data">ไม่พบข้อมูล</td></tr>';
+
+  // CARDS
+  const cardList = document.getElementById('farmCardList');
+  cardList.innerHTML = rows.length === 0 ? '<div class="card-no-data">ไม่พบข้อมูล</div>' :
+    rows.map((r, i) => `<div class="data-card" style="border-left-color:#276749">
+      <div class="card-header">
+        <div class="card-title">🐷 ${escHtml(r.name)}</div>
+        ${r.distance > 0 ? `<span style="background:#f0fff4;color:#276749;border-radius:6px;padding:2px 8px;font-size:0.78rem;font-weight:600;flex-shrink:0">${r.distance} กม.</span>` : ''}
+      </div>
+      <div class="card-prices">
+        <div class="price-box green">
+          <div class="pb-label">🚚 รถ 6-10 ล้อ (ราคาเดิม)</div>
+          <div class="pb-new" style="color:#718096;font-size:0.92rem">${fmt(r['6w_old'])}</div>
+        </div>
+        <div class="price-box green">
+          <div class="pb-label">🚚 รถ 6-10 ล้อ (ราคาใหม่)</div>
+          <div class="pb-new">${fmt(r['6w_new'])} <small style="color:#e53e3e;font-weight:400">${fmtDiff(r['6w_diff'])}</small></div>
+        </div>
+      </div>
+      ${r.note ? `<div class="card-meta"><span>📝 ${escHtml(r.note)}</span></div>` : ''}
+    </div>`).join('');
 
   renderPagination('farmPagination', farmPage, totalPages, (p) => { farmPage = p; renderFarmTable(); });
 }
@@ -490,23 +622,51 @@ function renderCustomerTable() {
   const start = (customerPage - 1) * PAGE_SIZE;
   const rows = filtered.slice(start, start + PAGE_SIZE);
 
-  document.getElementById('customerCount').textContent = `แสดง ${start+1}–${Math.min(start+PAGE_SIZE,total)} จาก ${total} รายการ`;
+  const endIdx = Math.min(start + PAGE_SIZE, total);
+  document.getElementById('customerCount').textContent = total === 0 ? 'ไม่พบข้อมูล' : `แสดง ${start+1}–${endIdx} จาก ${total} รายการ`;
 
+  const fmt = v => v > 0 ? v.toFixed(2) : '-';
+  const fmtH = v => v > 0 ? v.toFixed(2) : '<span class="zero">-</span>';
+  const fmtDiff = v => v > 0 ? `+${v.toFixed(2)}` : '';
+  const fmtDH = v => v > 0 ? `<span class="price-diff">+${v.toFixed(2)}</span>` : '';
+
+  // TABLE
   const tbody = document.getElementById('customerTableBody');
-  const fmt = v => v > 0 ? v.toFixed(2) : '<span class="zero">-</span>';
-  const fmtDiff = v => v > 0 ? `<span class="price-diff">+${v.toFixed(2)}</span>` : '';
   tbody.innerHTML = rows.map((r, i) => `<tr>
     <td>${start + i + 1}</td>
     <td class="left"><b>${escHtml(r.name)}</b></td>
     <td>${r.distance > 0 ? r.distance : '<span class="zero">-</span>'}</td>
-    <td>${fmt(r['4w_old'])}</td>
-    <td class="price-new">${fmt(r['4w_new'])}</td>
-    <td>${fmtDiff(r['4w_diff'])}</td>
-    <td>${fmt(r['6w_old'])}</td>
-    <td class="price-new">${fmt(r['6w_new'])}</td>
-    <td>${fmtDiff(r['6w_diff'])}</td>
+    <td>${fmtH(r['4w_old'])}</td>
+    <td class="price-new">${fmtH(r['4w_new'])}</td>
+    <td>${fmtDH(r['4w_diff'])}</td>
+    <td>${fmtH(r['6w_old'])}</td>
+    <td class="price-new">${fmtH(r['6w_new'])}</td>
+    <td>${fmtDH(r['6w_diff'])}</td>
     <td class="left" style="font-size:0.78rem;color:#718096">${escHtml(r.note || '')}</td>
   </tr>`).join('') || '<tr><td colspan="10" class="no-data">ไม่พบข้อมูล</td></tr>';
+
+  // CARDS
+  const cardList = document.getElementById('customerCardList');
+  cardList.innerHTML = rows.length === 0 ? '<div class="card-no-data">ไม่พบข้อมูล</div>' :
+    rows.map((r, i) => `<div class="data-card" style="border-left-color:#2b6cb0">
+      <div class="card-header">
+        <div class="card-title">👤 ${escHtml(r.name)}</div>
+        ${r.distance > 0 ? `<span style="background:#ebf8ff;color:#2b6cb0;border-radius:6px;padding:2px 8px;font-size:0.78rem;font-weight:600;flex-shrink:0">${r.distance} กม.</span>` : ''}
+      </div>
+      <div class="card-prices">
+        ${r['4w_new'] > 0 ? `<div class="price-box blue">
+          <div class="pb-label">🚛 รถ 4 ล้อ</div>
+          <div class="pb-old">${fmt(r['4w_old'])}</div>
+          <div class="pb-new">${fmt(r['4w_new'])} <small style="color:#e53e3e;font-weight:400">${fmtDiff(r['4w_diff'])}</small></div>
+        </div>` : ''}
+        ${r['6w_new'] > 0 ? `<div class="price-box green">
+          <div class="pb-label">🚚 รถ 6-10 ล้อ</div>
+          <div class="pb-old">${fmt(r['6w_old'])}</div>
+          <div class="pb-new">${fmt(r['6w_new'])} <small style="color:#e53e3e;font-weight:400">${fmtDiff(r['6w_diff'])}</small></div>
+        </div>` : ''}
+      </div>
+      ${r.note ? `<div class="card-meta"><span>📝 ${escHtml(r.note)}</span></div>` : ''}
+    </div>`).join('');
 
   renderPagination('customerPagination', customerPage, totalPages, (p) => { customerPage = p; renderCustomerTable(); });
 }
