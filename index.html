@@ -366,6 +366,10 @@ function loadAppData() {
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed && parsed.provinceData && parsed.provinceData.length > 0) {
+        // เติม field ที่อาจไม่มีในข้อมูลเก่า
+        if (!parsed.dieselPrice) parsed.dieselPrice = '44.40';
+        if (!parsed.updateDate) parsed.updateDate = '16/04/69';
+        if (!parsed.farmData) parsed.farmData = RAW_DATA.farm_data;
         return parsed;
       }
     }
