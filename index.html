@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard อัตราค่าขนส่ง</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Sarabun', 'Segoe UI', Arial, sans-serif; background: #f0f4f8; color: #1a202c; font-size: 14px; }
+
+  /* Header */
+  .header { background: linear-gradient(135deg, #1e3a5f 0%, #2d6a9f 100%); color: white; padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+  .header-left h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: 0.5px; }
+  .header-left p { font-size: 0.8rem; opacity: 0.8; margin-top: 2px; }
+  .header-right { display: flex; gap: 10px; align-items: center; }
+  .diesel-badge { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); border-radius: 20px; padding: 6px 14px; font-size: 0.78rem; }
+  .update-badge { background: rgba(255,200,0,0.25); border: 1px solid rgba(255,200,0,0.5); border-radius: 20px; padding: 6px 14px; font-size: 0.78rem; color: #ffe066; }
+
+  /* Summary cards */
+  .summary-bar { display: flex; gap: 12px; padding: 14px 24px; background: #fff; border-bottom: 1px solid #e2e8f0; flex-wrap: wrap; }
+  .stat-card { background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 18px; min-width: 140px; text-align: center; }
+  .stat-card .num { font-size: 1.5rem; font-weight: 700; color: #2d6a9f; }
+  .stat-card .lbl { font-size: 0.72rem; color: #718096; margin-top: 2px; }
+
+  /* Tabs */
+  .tab-bar { display: flex; background: #fff; border-bottom: 2px solid #e2e8f0; padding: 0 24px; gap: 4px; }
+  .tab-btn { padding: 10px 20px; border: none; background: none; cursor: pointer; font-size: 0.9rem; color: #718096; border-bottom: 3px solid transparent; margin-bottom: -2px; font-family: inherit; transition: all 0.2s; white-space: nowrap; }
+  .tab-btn:hover { color: #2d6a9f; }
+  .tab-btn.active { color: #2d6a9f; border-bottom-color: #2d6a9f; font-weight: 600; }
+
+  /* Main content */
+  .main { padding: 20px 24px; }
+
+  /* Filter bar */
+  .filter-bar { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; align-items: flex-end; }
+  .filter-group { display: flex; flex-direction: column; gap: 4px; }
+  .filter-group label { font-size: 0.75rem; color: #718096; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .filter-group select, .filter-group input { padding: 8px 12px; border: 1.5px solid #cbd5e0; border-radius: 8px; font-size: 0.9rem; font-family: inherit; color: #1a202c; background: white; min-width: 200px; outline: none; transition: border-color 0.2s; }
+  .filter-group select:focus, .filter-group input:focus { border-color: #2d6a9f; }
+  .reset-btn { padding: 8px 16px; background: #edf2f7; border: 1.5px solid #cbd5e0; border-radius: 8px; cursor: pointer; font-size: 0.85rem; color: #4a5568; font-family: inherit; }
+  .reset-btn:hover { background: #e2e8f0; }
+  .search-count { font-size: 0.82rem; color: #718096; align-self: flex-end; padding-bottom: 10px; }
+
+  /* Upload button */
+  .upload-area { margin-left: auto; align-self: flex-end; }
+  .upload-btn { padding: 9px 18px; background: #2d6a9f; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 0.88rem; font-family: inherit; display: flex; align-items: center; gap: 6px; transition: background 0.2s; }
+  .upload-btn:hover { background: #1e3a5f; }
+  .upload-btn svg { width: 16px; height: 16px; }
+  #fileInput { display: none; }
+
+  /* Table */
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .table-wrap { background: white; border-radius: 12px; overflow: hidden; min-width: 600px; }
+  .table-wrap table { width: 100%; border-collapse: collapse; }
+  .table-wrap th { background: #1e3a5f; color: white; padding: 10px 12px; text-align: center; font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
+  .table-wrap th.left { text-align: left; }
+  .table-wrap td { padding: 9px 12px; border-bottom: 1px solid #f0f4f8; font-size: 0.85rem; text-align: center; }
+  .table-wrap td.left { text-align: left; }
+  .table-wrap tr:last-child td { border-bottom: none; }
+  .table-wrap tr:hover td { background: #f7fafc; }
+  .table-wrap tr.has-customer td { background: #fffbeb; }
+  .table-wrap tr.has-customer:hover td { background: #fef3c7; }
+  .customer-tag { display: inline-block; background: #f6ad55; color: #7b341e; font-size: 0.7rem; padding: 2px 7px; border-radius: 10px; margin-left: 6px; font-weight: 600; }
+  .price-new { font-weight: 700; color: #276749; }
+  .price-diff { font-size: 0.78rem; color: #e53e3e; }
+  .zero { color: #a0aec0; }
+  .badge-province { display: inline-block; background: #ebf8ff; color: #2b6cb0; border-radius: 6px; padding: 2px 8px; font-size: 0.78rem; font-weight: 600; }
+  .badge-district { color: #553c9a; font-weight: 500; }
+  .no-data { text-align: center; padding: 60px 20px; color: #a0aec0; font-size: 1rem; }
+
+  /* Mobile Card View */
+  .card-list { display: none; flex-direction: column; gap: 10px; }
+  .data-card { background: white; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); border-left: 4px solid #2d6a9f; }
+  .data-card.has-customer { border-left-color: #f6ad55; background: #fffbeb; }
+  .data-card .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; gap: 8px; }
+  .data-card .card-title { font-weight: 700; font-size: 0.95rem; color: #1a202c; line-height: 1.4; }
+  .data-card .card-subtitle { font-size: 0.78rem; color: #718096; margin-top: 3px; }
+  .card-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+  .card-prices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .price-box { background: #f7fafc; border-radius: 8px; padding: 8px 10px; }
+  .price-box .pb-label { font-size: 0.68rem; color: #718096; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 4px; }
+  .price-box .pb-old { font-size: 0.78rem; color: #a0aec0; text-decoration: line-through; }
+  .price-box .pb-new { font-size: 1.05rem; font-weight: 700; color: #276749; }
+  .price-box.blue { background: #ebf8ff; }
+  .price-box.green { background: #f0fff4; }
+  .card-meta { margin-top: 8px; font-size: 0.75rem; color: #718096; display: flex; gap: 12px; flex-wrap: wrap; }
+  .card-no-data { text-align: center; padding: 40px 20px; color: #a0aec0; background: white; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+
+  /* Upload status */
+  .upload-status { padding: 10px 16px; border-radius: 8px; margin-bottom: 14px; font-size: 0.85rem; display: none; }
+  .upload-status.success { background: #c6f6d5; color: #276749; display: block; }
+  .upload-status.error { background: #fed7d7; color: #c53030; display: block; }
+
+  /* ===== RESPONSIVE MOBILE ===== */
+  @media (max-width: 768px) {
+    /* Header */
+    .header { flex-direction: column; gap: 8px; padding: 14px 16px; }
+    .header-left h1 { font-size: 1.1rem; }
+    .header-right { flex-wrap: wrap; gap: 6px; }
+    .diesel-badge, .update-badge { font-size: 0.72rem; padding: 4px 10px; }
+
+    /* Summary bar - 2 col grid scroll */
+    .summary-bar { padding: 10px 14px; gap: 8px; display: grid; grid-template-columns: repeat(3, 1fr); overflow-x: auto; }
+    .stat-card { min-width: unset; padding: 8px 6px; }
+    .stat-card .num { font-size: 1.2rem; }
+    .stat-card .lbl { font-size: 0.65rem; }
+
+    /* Tab bar - scrollable */
+    .tab-bar { padding: 0 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; gap: 0; }
+    .tab-bar::-webkit-scrollbar { display: none; }
+    .tab-btn { padding: 10px 14px; font-size: 0.8rem; white-space: nowrap; flex-shrink: 0; }
+
+    /* Main */
+    .main { padding: 12px 12px; }
+
+    /* Filter bar - stack vertically */
+    .filter-bar { flex-direction: column; gap: 8px; align-items: stretch; }
+    .filter-group select, .filter-group input { min-width: unset; width: 100%; font-size: 1rem; padding: 10px 12px; }
+    .filter-group { width: 100%; }
+    .reset-btn { width: 100%; padding: 10px; font-size: 0.9rem; }
+    .search-count { text-align: center; padding-bottom: 0; }
+    .upload-area { width: 100%; margin-left: 0; }
+    .upload-btn { width: 100%; justify-content: center; padding: 11px 18px; font-size: 0.92rem; }
+
+    /* Tables - hide on mobile, show cards */
+    .table-scroll { display: none !important; }
+    .card-list { display: flex; }
+
+    /* Pagination compact */
+    .pagination { flex-wrap: wrap; gap: 6px; padding: 10px; }
+    .page-btn { padding: 7px 11px; font-size: 0.82rem; min-width: 36px; }
+
+    /* Modal full screen on mobile */
+    .modal { width: 95%; padding: 20px 16px; margin: 10px; border-radius: 12px; max-height: 90vh; overflow-y: auto; }
+    .modal h3 { font-size: 1rem; }
+    .drop-zone { padding: 20px; }
+
+    /* Upload status */
+    .upload-status { font-size: 0.8rem; }
+  }
+
+  @media (max-width: 400px) {
+    .summary-bar { grid-template-columns: repeat(2, 1fr); }
+    .header-left h1 { font-size: 1rem; }
+  }
+
+  /* Pagination */
+  .pagination { display: flex; justify-content: center; align-items: center; gap: 8px; padding: 14px; }
+  .page-btn { padding: 6px 12px; border: 1.5px solid #cbd5e0; border-radius: 6px; cursor: pointer; background: white; font-family: inherit; font-size: 0.83rem; color: #4a5568; }
+  .page-btn:hover { background: #e2e8f0; }
+  .page-btn.active { background: #2d6a9f; color: white; border-color: #2d6a9f; }
+  .page-info { font-size: 0.82rem; color: #718096; }
+
+  /* Modal for adding data */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; z-index: 100; align-items: center; justify-content: center; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: white; border-radius: 14px; padding: 28px; width: 90%; max-width: 500px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+  .modal h3 { font-size: 1.1rem; margin-bottom: 16px; color: #1e3a5f; }
+  .modal-body { font-size: 0.88rem; color: #4a5568; line-height: 1.7; margin-bottom: 20px; }
+  .modal-body ul { margin-left: 18px; margin-top: 8px; }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 10px; }
+  .btn-secondary { padding: 8px 18px; background: #edf2f7; border: 1px solid #cbd5e0; border-radius: 8px; cursor: pointer; font-family: inherit; }
+  .btn-primary { padding: 8px 18px; background: #2d6a9f; color: white; border: none; border-radius: 8px; cursor: pointer; font-family: inherit; }
+  .drop-zone { border: 2px dashed #cbd5e0; border-radius: 10px; padding: 30px; text-align: center; color: #718096; cursor: pointer; transition: all 0.2s; margin-bottom: 16px; }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: #2d6a9f; background: #ebf8ff; color: #2d6a9f; }
+  .drop-zone svg { width: 36px; height: 36px; margin-bottom: 8px; }
+
+  /* Tab panels */
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Custom data banner */
+  .custom-data-banner { display: none; align-items: center; justify-content: space-between; gap: 10px; background: #ebf8ff; border-bottom: 1px solid #bee3f8; padding: 8px 24px; font-size: 0.82rem; color: #2b6cb0; flex-wrap: wrap; }
+  .custom-data-banner .banner-label { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 200px; }
+  .reset-orig-btn { padding: 5px 12px; background: white; border: 1.5px solid #90cdf4; border-radius: 6px; color: #2b6cb0; font-size: 0.78rem; cursor: pointer; font-family: inherit; white-space: nowrap; flex-shrink: 0; }
+  .reset-orig-btn:hover { background: #bee3f8; }
+  @media (max-width: 768px) {
+    .custom-data-banner { padding: 8px 14px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>🚛 Dashboard อัตราค่าขนส่ง</h1>
+    <p>ระบบแสดงอัตราค่าขนส่งตามพื้นที่และลูกค้า</p>
+  </div>
+  <div class="header-right">
+    <div class="diesel-badge" id="dieselBadge">⛽ ดีเซล 38.80 บ./ลิตร</div>
+    <div class="update-badge" id="updateBadge">📅 อัปเดต 16/06/69</div>
+  </div>
+</div>
+
+<div class="summary-bar">
+  <div class="stat-card"><div class="num" id="statProvinces">35</div><div class="lbl">จังหวัด</div></div>
+  <div class="stat-card"><div class="num" id="statDistricts">-</div><div class="lbl">อำเภอ/เขต</div></div>
+  <div class="stat-card"><div class="num" id="statCustomers">131</div><div class="lbl">จุดส่งลูกค้า</div></div>
+  <div class="stat-card"><div class="num" id="statFarms">32</div><div class="lbl">ฟาร์มสุกร</div></div>
+</div>
+
+<div class="custom-data-banner" id="customDataBanner">
+  <div class="banner-label">
+    <span id="customDataLabel">📂 ใช้ข้อมูลที่อัพโหลด</span>
+    <span style="opacity:0.6">— ข้อมูลนี้บันทึกในเบราว์เซอร์นี้แล้ว เปิดใหม่ก็ยังคงอยู่</span>
+  </div>
+  <button class="reset-orig-btn" onclick="resetToOriginal()">↩️ กลับข้อมูลเดิม</button>
+</div>
+
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('province')">🗺️ ค่าขนส่งตามจังหวัด</button>
+  <button class="tab-btn" onclick="switchTab('farm')">🐷 ค่าขนส่งตามฟาร์มสุกร</button>
+  </div>
+
+<div class="main">
+  <div id="uploadStatus" class="upload-status"></div>
+
+  <!-- === TAB: PROVINCE === -->
+  <div id="tab-province" class="tab-panel active">
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>จังหวัด</label>
+        <select id="provinceSelect" onchange="onProvinceChange()">
+          <option value="">-- ทุกจังหวัด --</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>อำเภอ / เขต</label>
+        <select id="districtSelect" onchange="renderProvinceTable()">
+          <option value="">-- ทุกอำเภอ --</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>ค้นหาสถานที่</label>
+        <input type="text" id="locationSearch" placeholder="ชื่อสถานที่..." oninput="renderProvinceTable()">
+      </div>
+      <button class="reset-btn" onclick="resetProvinceFilter()">↺ รีเซ็ต</button>
+      <span class="search-count" id="provinceCount"></span>
+      <div class="upload-area">
+        <button class="upload-btn" onclick="openUploadModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          เพิ่มข้อมูลอัตราค่าขนส่งใหม่
+        </button>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="left" style="width:40px">#</th>
+              <th class="left">จังหวัด</th>
+              <th class="left">อำเภอ / เขต</th>
+              <th class="left">สถานที่จัดส่ง / ลูกค้า</th>
+              <th>ระยะทาง (กม.)</th>
+              <th colspan="2" style="background:#1a5276">รถ 4 ล้อ (บาท/กก.)</th>
+              <th colspan="2" style="background:#145a32">รถ 6-10 ล้อ (บาท/กก.)</th>
+              <th>หมายเหตุ</th>
+            </tr>
+            <tr>
+              <th colspan="5" style="height:2px;padding:0;background:#1e3a5f"></th>
+              <th style="background:#1a5276;font-size:0.72rem;padding:6px">ราคาเดิม</th>
+              <th style="background:#1a5276;font-size:0.72rem;padding:6px">ราคาใหม่</th>
+              <th style="background:#145a32;font-size:0.72rem;padding:6px">ราคาเดิม</th>
+              <th style="background:#145a32;font-size:0.72rem;padding:6px">ราคาใหม่</th>
+              <th style="height:2px;padding:0;background:#1e3a5f"></th>
+            </tr>
+          </thead>
+          <tbody id="provinceTableBody">
+            <tr><td colspan="10" class="no-data">กำลังโหลดข้อมูล...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card-list" id="provinceCardList"></div>
+    <div class="pagination" id="provincePagination"></div>
+  </div>
+
+  <!-- === TAB: FARM === -->
+  <div id="tab-farm" class="tab-panel">
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>ค้นหาชื่อฟาร์ม</label>
+        <input type="text" id="farmSearch" placeholder="ชื่อฟาร์ม..." oninput="renderFarmTable()">
+      </div>
+      <button class="reset-btn" onclick="document.getElementById('farmSearch').value='';renderFarmTable()">↺ รีเซ็ต</button>
+      <span class="search-count" id="farmCount"></span>
+      <div class="upload-area">
+        <button class="upload-btn" onclick="openUploadModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          เพิ่มข้อมูลอัตราค่าขนส่งใหม่
+        </button>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:40px">#</th>
+              <th class="left">ชื่อฟาร์ม / สถานที่จัดส่ง</th>
+              <th>ระยะทาง (กม.)</th>
+              <th colspan="3" style="background:#145a32">รถ 6-10 ล้อ (บาท/กก.)</th>
+              <th>หมายเหตุ</th>
+            </tr>
+            <tr>
+              <th colspan="3" style="height:2px;padding:0;background:#1e3a5f"></th>
+              <th style="background:#145a32;font-size:0.72rem;padding:6px">ราคาเดิม</th>
+              <th style="background:#145a32;font-size:0.72rem;padding:6px">ราคาใหม่</th>
+              <th style="background:#1a7a47;font-size:0.72rem;padding:6px">ส่วนต่าง</th>
+              <th style="height:2px;padding:0;background:#1e3a5f"></th>
+            </tr>
+          </thead>
+          <tbody id="farmTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card-list" id="farmCardList"></div>
+    <div class="pagination" id="farmPagination"></div>
+  </div>
+
+  
+</div>
+
+<!-- Upload Modal -->
+<div class="modal-overlay" id="uploadModal">
+  <div class="modal">
+    <h3>📤 อัปโหลดข้อมูลอัตราค่าขนส่งใหม่</h3>
+    <div class="modal-body">
+      กรุณาอัปโหลดไฟล์ Excel (.xlsx) ที่มีโครงสร้างเดิม:<br>
+      <ul>
+        <li><b>Sheet 1:</b> ค่าขนส่งตามจังหวัด (header row 4)</li>
+        <li><b>Sheet 2:</b> ค่าขนส่งตามฟาร์มสุกร</li>
+        <li><b>Sheet 3:</b> ค่าขนส่งตามรายลูกค้า</li>
+      </ul>
+      <br>ข้อมูลจะถูก<b>บันทึกในเบราว์เซอร์นี้โดยอัตโนมัติ</b> — เปิดไฟล์ใหม่ก็ยังคงใช้ข้อมูลล่าสุดอยู่ครับ
+    </div>
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()" 
+         ondragover="event.preventDefault();this.classList.add('drag-over')" 
+         ondragleave="this.classList.remove('drag-over')"
+         ondrop="handleFileDrop(event)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+      </svg>
+      <div style="font-weight:600">คลิกหรือลากไฟล์มาวางที่นี่</div>
+      <div style="font-size:0.78rem;margin-top:4px">รองรับไฟล์ .xlsx, .xls</div>
+    </div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleFileSelect(event)">
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeUploadModal()">ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========= EMBEDDED DATA =========
+const RAW_DATA = {"province_data":[{"id":1,"province":"เพชรบุรี","district":"อ.บ้านแหลม","location":"","distance":124.0,"4w_old":17.0,"4w_new":16.0,"4w_diff":-1.0,"6w_old":13.75,"6w_new":13.0,"6w_diff":-0.75,"note":""},{"id":2,"province":"เพชรบุรี","district":"อ.เขาย้อย","location":"","distance":104.0,"4w_old":14.75,"4w_new":13.75,"4w_diff":-1.0,"6w_old":11.5,"6w_new":10.75,"6w_diff":-0.75,"note":""},{"id":3,"province":"เพชรบุรี","district":"อ.เมืองเพชรบุรี","location":"คุณสุรชัย ฉัตรไพศาล","distance":135.0,"4w_old":15.0,"4w_new":14.0,"4w_diff":-1.0,"6w_old":13.75,"6w_new":13.0,"6w_diff":-0.75,"note":""},{"id":4,"province":"เพชรบุรี","district":"อ.เมืองเพชรบุรี","location":"","distance":126.0,"4w_old":15.0,"4w_new":14.0,"4w_diff":-1.0,"6w_old":13.0,"6w_new":12.25,"6w_diff":-0.75,"note":""},{"id":5,"province":"เพชรบุรี","district":"อ.แก่งกระจาน","location":"","distance":169.0,"4w_old":23.25,"4w_new":21.75,"4w_diff":-1.5,"6w_old":15.25,"6w_new":14.25,"6w_diff":-1.0,"note":""},{"id":6,"province":"เพชรบุรี","district":"อ.ชะอำ","location":"","distance":167.0,"4w_old":19.0,"4w_new":17.75,"4w_diff":-1.25,"6w_old":14.0,"6w_new":13.25,"6w_diff":-0.75,"note":""},{"id":7,"province":"เพชรบุรี","district":"อ.ท่ายาง","location":"","distance":143.0,"4w_old":17.0,"4w_new":16.0,"4w_diff":-1.0,"6w_old":13.75,"6w_new":13.0,"6w_diff":-0.75,"note":""},{"id":8,"province":"เพชรบุรี","district":"อ.บ้านลาด","location":"","distance":134.0,"4w_old":17.0,"4w_new":16.0,"4w_diff":-1.0,"6w_old":13.0,"6w_new":12.25,"6w_diff":-0.75,"note":""},{"id":9,"province":"เพชรบุรี","district":"อ.หนองหญ้าปล้อง","location":"","distance":128.0,"4w_old":19.0,"4w_new":17.75,"4w_diff":-1.25,"6w_old":13.0,"6w_new":12.25,"6w_diff":-0.75,"note":""},{"id":10,"province":"เพชรบูรณ์","district":"อ.เมืองเพชรบูรณ์","location":"","distance":394.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":26.75,"6w_new":25.0,"6w_diff":-1.75,"note":""},{"id":11,"province":"เพชรบูรณ์","district":"อ.เขาค้อ","location":"","distance":439.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":27.75,"6w_new":26.0,"6w_diff":-1.75,"note":""},{"id":12,"province":"เพชรบูรณ์","district":"อ.ชนแดน","location":"","distance":342.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":24.25,"6w_new":22.75,"6w_diff":-1.5,"note":""},{"id":13,"province":"เพชรบูรณ์","district":"อ.น้ำหนาว","location":"","distance":513.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":31.25,"6w_new":29.25,"6w_diff":-2.0,"note":""},{"id":14,"province":"เพชรบูรณ์","district":"อ.บึงสามพพราน","location":"","distance":312.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":22.25,"6w_new":20.75,"6w_diff":-1.5,"note":""},{"id":15,"province":"เพชรบูรณ์","district":"อ.วังโป่ง","location":"","distance":357.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":26.75,"6w_new":25.0,"6w_diff":-1.75,"note":""},{"id":16,"province":"เพชรบูรณ์","district":"อ.วิเชียรบุรี","location":"","distance":288.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":22.25,"6w_new":20.75,"6w_diff":-1.5,"note":""},{"id":17,"province":"เพชรบูรณ์","district":"อ.ศรีเทพ","location":"","distance":258.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":22.25,"6w_new":20.75,"6w_diff":-1.5,"note":""},{"id":18,"province":"เพชรบูรณ์","district":"อ.หนองไผ่","location":"","distance":348.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":23.25,"6w_new":21.75,"6w_diff":-1.5,"note":""},{"id":19,"province":"เพชรบูรณ์","district":"อ.หล่มเก่า","location":"","distance":451.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":27.75,"6w_new":26.0,"6w_diff":-1.75,"note":""},{"id":20,"province":"เพชรบูรณ์","district":"อ.หล่มศัก","location":"","distance":438.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":29.0,"6w_new":27.0,"6w_diff":-2.0,"note":""},{"id":21,"province":"กรุงเทพฯ","district":"เขตทวีวัฒนา/สนามหลวง2","location":"ร้านเพ็ทแคร์(โกดังข้างเซเว่น)","distance":76.0,"4w_old":13.0,"4w_new":12.5,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":22,"province":"กรุงเทพฯ","district":"เขตทวีวัฒนา/สนามหลวง2","location":"ร้านเพ็ทแคร์(ร้าน)","distance":76.0,"4w_old":13.0,"4w_new":12.5,"4w_diff":-0.5,"6w_old":10.0,"6w_new":9.5,"6w_diff":-0.5,"note":""},{"id":23,"province":"กรุงเทพฯ","district":"บางแค","location":"คุณสายหยุด เอกสุภักดิ์","distance":93.0,"4w_old":13.0,"4w_new":12.5,"4w_diff":-0.5,"6w_old":12.75,"6w_new":12.25,"6w_diff":-0.5,"note":""},{"id":24,"province":"กรุงเทพฯ","district":"เขตดอนเมือง","location":"ร้าน อวยชัย","distance":83.0,"4w_old":17.0,"4w_new":16.25,"4w_diff":-0.75,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":"ใช้รถบิ๊คขนส่ง"},{"id":25,"province":"กาญจนบุรี","district":"อ. เมืองกาญจนบุรี","location":"บริษัท เมืองกาญจน์อาหารสัตว์ จำกัด","distance":59.0,"4w_old":9.75,"4w_new":9.5,"4w_diff":-0.25,"6w_old":8.0,"6w_new":7.75,"6w_diff":-0.25,"note":""},{"id":26,"province":"กาญจนบุรี","district":"อ. เมืองกาญจนบุรี","location":"บริษัท สมบัติเพิ่มผล จำกัด","distance":70.0,"4w_old":13.0,"4w_new":12.5,"4w_diff":-0.5,"6w_old":9.25,"6w_new":9.0,"6w_diff":-0.25,"note":""},{"id":27,"province":"กาญจนบุรี","district":"อ. เมืองกาญจนบุรี","location":"","distance":59.0,"4w_old":9.5,"4w_new":9.25,"4w_diff":-0.25,"6w_old":7.5,"6w_new":7.25,"6w_diff":-0.25,"note":""},{"id":28,"province":"กาญจนบุรี","district":"อ.เลาขวัญ","location":"คุณมานิตย์ พินิจพานิชย์(ต.หนองนกแก้ว)","distance":77.0,"4w_old":13.5,"4w_new":13.0,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":29,"province":"กาญจนบุรี","district":"อ.เลาขวัญ","location":"คุณมานิตย์ พินิจพานิชย์(ต.หนองฝ้าย)","distance":103.0,"4w_old":13.75,"4w_new":13.0,"4w_diff":-0.75,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":30,"province":"กาญจนบุรี","district":"อ.เลาขวัญ","location":"คุณสมคิด สถิตย์กสิกรรม(คุณลิ้ม)","distance":66.0,"4w_old":11.5,"4w_new":11.0,"4w_diff":-0.5,"6w_old":9.25,"6w_new":9.0,"6w_diff":-0.25,"note":""},{"id":31,"province":"กาญจนบุรี","district":"อ.เลาขวัญ","location":"","distance":94.0,"4w_old":13.5,"4w_new":13.0,"4w_diff":-0.5,"6w_old":10.75,"6w_new":10.25,"6w_diff":-0.5,"note":""},{"id":32,"province":"กาญจนบุรี","district":"อ.ไทรโยค (ใหญ่)","location":"","distance":173.0,"4w_old":27.75,"4w_new":26.0,"4w_diff":-1.75,"6w_old":13.0,"6w_new":12.25,"6w_diff":-0.75,"note":""},{"id":33,"province":"กาญจนบุรี","district":"อ.ไทรโยค (น้อย)","location":"","distance":134.0,"4w_old":22.75,"4w_new":21.25,"4w_diff":-1.5,"6w_old":13.0,"6w_new":12.25,"6w_diff":-0.75,"note":""},{"id":34,"province":"กาญจนบุรี","district":"อ.ด่านมะขามเตี้ย","location":"","distance":86.0,"4w_old":13.0,"4w_new":12.5,"4w_diff":-0.5,"6w_old":11.5,"6w_new":11.0,"6w_diff":-0.5,"note":""},{"id":35,"province":"กาญจนบุรี","district":"อ.ทองผาภมิ","location":"","distance":170.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":16.75,"6w_new":15.75,"6w_diff":-1.0,"note":""},{"id":36,"province":"กาญจนบุรี","district":"อ.ท่าม่วง","location":"คุณธัญวัลย์ บุญขุนยัง","distance":57.0,"4w_old":9.75,"4w_new":9.5,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":37,"province":"กาญจนบุรี","district":"อ.ท่าม่วง","location":"คุณธัญวัลย์ บุญขุนยัง(คุณบอย)","distance":68.0,"4w_old":9.75,"4w_new":9.5,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":38,"province":"กาญจนบุรี","district":"อ.ท่าม่วง","location":"คุณวิระพงษ์ เทพี","distance":50.0,"4w_old":9.75,"4w_new":9.5,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":39,"province":"กาญจนบุรี","district":"อ.ท่าม่วง","location":"ทรัพย์สมบัติฟาร์ม","distance":72.0,"4w_old":11.5,"4w_new":11.0,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":40,"province":"กาญจนบุรี","district":"อ.ท่าม่วง","location":"บริษัท เหลืองอรัญการค้า จำกัด","distance":45.0,"4w_old":9.75,"4w_new":9.5,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":41,"province":"กาญจนบุรี","district":"อ.ท่าม่วง","location":"เจบีเอฟ-เอสเจเอฟ(เขาเป้ง)","distance":64.7,"4w_old":11.5,"4w_new":11.0,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":42,"province":"กาญจนบุรี","district":"อ.ท่าม่วง","location":"","distance":49.0,"4w_old":9.75,"4w_new":9.5,"4w_diff":-0.25,"6w_old":7.5,"6w_new":7.25,"6w_diff":-0.25,"note":""},{"id":43,"province":"กาญจนบุรี","district":"อ.ท่ามะกา","location":"","distance":41.0,"4w_old":9.75,"4w_new":9.5,"4w_diff":-0.25,"6w_old":7.5,"6w_new":7.25,"6w_diff":-0.25,"note":""},{"id":44,"province":"กาญจนบุรี","district":"อ.บ่อพลอย","location":"","distance":83.0,"4w_old":13.0,"4w_new":12.5,"4w_diff":-0.5,"6w_old":10.0,"6w_new":9.5,"6w_diff":-0.5,"note":""},{"id":45,"province":"กาญจนบุรี","district":"อ.พนมทวน","location":"","distance":46.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":8.0,"6w_new":7.75,"6w_diff":-0.25,"note":""},{"id":46,"province":"กาญจนบุรี","district":"อ.ศรีสวัสดิ์","location":"","distance":186.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":16.75,"6w_new":15.75,"6w_diff":-1.0,"note":""},{"id":47,"province":"กาญจนบุรี","district":"อ.สังขละบุรี","location":"","distance":276.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":20.25,"6w_new":19.0,"6w_diff":-1.25,"note":""},{"id":48,"province":"กาญจนบุรี","district":"อ.หนองปรือ","location":"สีน้ำพาณิชย์","distance":109.0,"4w_old":15.25,"4w_new":14.25,"4w_diff":-1.0,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":49,"province":"กาญจนบุรี","district":"อ.หนองปรือ","location":"","distance":115.0,"4w_old":15.25,"4w_new":14.25,"4w_diff":-1.0,"6w_old":13.0,"6w_new":12.25,"6w_diff":-0.75,"note":""},{"id":50,"province":"กาญจนบุรี","district":"อ.ห้วยกระเจา","location":"","distance":67.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":9.25,"6w_new":9.0,"6w_diff":-0.25,"note":""},{"id":51,"province":"กำแพงเพชร","district":"กิ่ง อ.โกสัมภีนคร","location":"","distance":403.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":27.75,"6w_new":26.0,"6w_diff":-1.75,"note":""},{"id":52,"province":"กำแพงเพชร","district":"กิ่ง อ.บึงสามัคคี","location":"","distance":330.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":25.5,"6w_new":23.75,"6w_diff":-1.75,"note":""},{"id":53,"province":"กำแพงเพชร","district":"อ.เมืองกำแพงเพชร","location":"","distance":379.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":27.75,"6w_new":26.0,"6w_diff":-1.75,"note":""},{"id":54,"province":"กำแพงเพชร","district":"อ.เมืองกำแพงเพชร","location":"ประสิทธิ์การค้า","distance":331.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":27.75,"6w_new":26.0,"6w_diff":-1.75,"note":""},{"id":55,"province":"กำแพงเพชร","district":"อ.ไทรงาม","location":"","distance":378.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":27.75,"6w_new":26.0,"6w_diff":-1.75,"note":""},{"id":56,"province":"กำแพงเพชร","district":"อ.ขาณุวรลักษบุรี","location":"","distance":317.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":22.75,"6w_new":21.25,"6w_diff":-1.5,"note":""},{"id":57,"province":"กำแพงเพชร","district":"อ.คลองขลุง","location":"","distance":339.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":22.75,"6w_new":21.25,"6w_diff":-1.5,"note":""},{"id":58,"province":"กำแพงเพชร","district":"อ.คลองลาน","location":"ร้านวรกานต์ การเกษตร","distance":305.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":27.75,"6w_new":26.0,"6w_diff":-1.75,"note":""},{"id":59,"province":"กำแพงเพชร","district":"อ.คลองลาน","location":"ส.ทรัพย์เจริญ","distance":290.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":27.75,"6w_new":26.0,"6w_diff":-1.75,"note":""},{"id":60,"province":"กำแพงเพชร","district":"อ.คลองลาน","location":"","distance":388.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":27.75,"6w_new":26.0,"6w_diff":-1.75,"note":""},{"id":61,"province":"กำแพงเพชร","district":"อ.ทรายทองวัฒนา","location":"","distance":357.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":27.75,"6w_new":26.0,"6w_diff":-1.75,"note":""},{"id":62,"province":"กำแพงเพชร","district":"อ.ปางศิลาทอง","location":"","distance":395.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":25.5,"6w_new":23.75,"6w_diff":-1.75,"note":""},{"id":63,"province":"กำแพงเพชร","district":"อ.พานกระต่าย","location":"","distance":403.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":27.75,"6w_new":26.0,"6w_diff":-1.75,"note":""},{"id":64,"province":"กำแพงเพชร","district":"อ.ลานกระบือ","location":"เอมอรเพ็ทช็อป","distance":360.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":29.0,"6w_new":27.0,"6w_diff":-2.0,"note":""},{"id":65,"province":"กำแพงเพชร","district":"อ.ลานกระบือ","location":"","distance":391.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":29.0,"6w_new":27.0,"6w_diff":-2.0,"note":""},{"id":66,"province":"จันทบุรี","district":"กิ่ง อ.เขาคิชฌกูฎ","location":"","distance":337.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":26.5,"6w_new":24.75,"6w_diff":-1.75,"note":""},{"id":67,"province":"จันทบุรี","district":"อ.เมืองจันทบุรี","location":"","distance":328.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":26.5,"6w_new":24.75,"6w_diff":-1.75,"note":""},{"id":68,"province":"จันทบุรี","district":"อ.แก่งหางแมว","location":"","distance":318.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":27.75,"6w_new":26.0,"6w_diff":-1.75,"note":""},{"id":69,"province":"จันทบุรี","district":"อ.แหลมสิงห์","location":"","distance":338.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":27.75,"6w_new":26.0,"6w_diff":-1.75,"note":""},{"id":70,"province":"จันทบุรี","district":"อ.โป่งน้ำร้อน","location":"","distance":368.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":29.0,"6w_new":27.0,"6w_diff":-2.0,"note":""},{"id":71,"province":"จันทบุรี","district":"อ.ขลุง","location":"","distance":357.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":27.75,"6w_new":26.0,"6w_diff":-1.75,"note":""},{"id":72,"province":"จันทบุรี","district":"อ.ท่าใหม่","location":"","distance":317.0,"4w_old":47.5,"4w_new":44.25,"4w_diff":-3.25,"6w_old":25.5,"6w_new":23.75,"6w_diff":-1.75,"note":""},{"id":73,"province":"จันทบุรี","district":"อ.นายายอาม","location":"","distance":291.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":25.5,"6w_new":23.75,"6w_diff":-1.75,"note":""},{"id":74,"province":"จันทบุรี","district":"อ.มะขาม","location":"","distance":340.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":27.75,"6w_new":26.0,"6w_diff":-1.75,"note":""},{"id":75,"province":"จันทบุรี","district":"อ.สอยดาว","location":"","distance":331.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":30.0,"6w_new":28.0,"6w_diff":-2.0,"note":""},{"id":76,"province":"ฉะเชิงเทรา","district":"อ.เมืองฉะเชิงเทรา","location":"คุณกมลกานต์ สะสินทร","distance":157.0,"4w_old":26.0,"4w_new":24.25,"4w_diff":-1.75,"6w_old":16.75,"6w_new":15.75,"6w_diff":-1.0,"note":""},{"id":77,"province":"ฉะเชิงเทรา","district":"อ.เมืองฉะเชิงเทรา","location":"บริษัท บิ๊ค เคมิคอล จำกัด(ร้าน)","distance":157.0,"4w_old":27.75,"4w_new":26.0,"4w_diff":-1.75,"6w_old":17.75,"6w_new":16.75,"6w_diff":-1.0,"note":""},{"id":78,"province":"ฉะเชิงเทรา","district":"อ.เมืองฉะเชิงเทรา","location":"คุณอนันต์ โพธิ์สุวรรณ","distance":157.0,"4w_old":27.75,"4w_new":26.0,"4w_diff":-1.75,"6w_old":17.75,"6w_new":16.75,"6w_diff":-1.0,"note":""},{"id":79,"province":"ฉะเชิงเทรา","district":"อ.เมืองฉะเชิงเทรา","location":"","distance":163.0,"4w_old":27.75,"4w_new":26.0,"4w_diff":-1.75,"6w_old":17.75,"6w_new":16.75,"6w_diff":-1.0,"note":""},{"id":80,"province":"ฉะเชิงเทรา","district":"อ.แปลงยาว","location":"","distance":182.0,"4w_old":27.75,"4w_new":26.0,"4w_diff":-1.75,"6w_old":17.75,"6w_new":16.75,"6w_diff":-1.0,"note":""},{"id":81,"province":"ฉะเชิงเทรา","district":"อ.ท่าตะเกียบ","location":"","distance":229.0,"4w_old":32.75,"4w_new":30.5,"4w_diff":-2.25,"6w_old":25.5,"6w_new":23.75,"6w_diff":-1.75,"note":""},{"id":82,"province":"ฉะเชิงเทรา","district":"อ.บางคล้า","location":"กิจเจริญไชย","distance":176.0,"4w_old":27.5,"4w_new":25.75,"4w_diff":-1.75,"6w_old":19.0,"6w_new":17.75,"6w_diff":-1.25,"note":""},{"id":83,"province":"ฉะเชิงเทรา","district":"อ.บางคล้า","location":"","distance":183.0,"4w_old":27.75,"4w_new":26.0,"4w_diff":-1.75,"6w_old":17.75,"6w_new":16.75,"6w_diff":-1.0,"note":""},{"id":84,"province":"ฉะเชิงเทรา","district":"อ.บางน้ำเปรี้ยว","location":"","distance":161.0,"4w_old":27.75,"4w_new":26.0,"4w_diff":-1.75,"6w_old":17.75,"6w_new":16.75,"6w_diff":-1.0,"note":""},{"id":85,"province":"ฉะเชิงเทรา","district":"อ.บางปะกง","location":"","distance":148.0,"4w_old":27.75,"4w_new":26.0,"4w_diff":-1.75,"6w_old":16.5,"6w_new":15.5,"6w_diff":-1.0,"note":""},{"id":86,"province":"ฉะเชิงเทรา","district":"อ.บ้านโพธิ์","location":"คุณภาณิชา บูรณ์เจริญ","distance":171.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":16.75,"6w_new":15.75,"6w_diff":-1.0,"note":""},{"id":87,"province":"ฉะเชิงเทรา","district":"อ.บ้านโพธิ์","location":"","distance":159.0,"4w_old":27.75,"4w_new":26.0,"4w_diff":-1.75,"6w_old":16.75,"6w_new":15.75,"6w_diff":-1.0,"note":""},{"id":88,"province":"ฉะเชิงเทรา","district":"อ.พนมสารคาม","location":"","distance":193.0,"4w_old":27.75,"4w_new":26.0,"4w_diff":-1.75,"6w_old":17.75,"6w_new":16.75,"6w_diff":-1.0,"note":""},{"id":89,"province":"ฉะเชิงเทรา","district":"อ.พนมสารคาม","location":"บริษัท บิ๊ค เคมิคอล จำกัด(ศูนย์ศึกษาการพัฒนาเขาหินซ้อน อ.พนมสารคาม จ.ฉะเชิงเทรา)","distance":205.0,"4w_old":28.25,"4w_new":26.5,"4w_diff":-1.75,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":90,"province":"ฉะเชิงเทรา","district":"อ.สนามชัยเขต","location":"","distance":205.0,"4w_old":29.75,"4w_new":27.75,"4w_diff":-2.0,"6w_old":20.25,"6w_new":19.0,"6w_diff":-1.25,"note":""},{"id":91,"province":"ชลบุรี","district":"กิ่ง อ.เกาะจันทร์","location":"","distance":201.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":20.25,"6w_new":19.0,"6w_diff":-1.25,"note":""},{"id":92,"province":"ชลบุรี","district":"อ.เกาะสีชัง","location":"","distance":228.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":93,"province":"ชลบุรี","district":"อ.เมืองชลบุรี","location":"","distance":177.0,"4w_old":26.5,"4w_new":24.75,"4w_diff":-1.75,"6w_old":17.75,"6w_new":16.75,"6w_diff":-1.0,"note":""},{"id":94,"province":"ชลบุรี","district":"อ.บ่อทอง","location":"","distance":222.0,"4w_old":29.75,"4w_new":27.75,"4w_diff":-2.0,"6w_old":19.0,"6w_new":17.75,"6w_diff":-1.25,"note":""},{"id":95,"province":"ชลบุรี","district":"อ.บางละมุง","location":"","distance":228.0,"4w_old":32.75,"4w_new":30.5,"4w_diff":-2.25,"6w_old":19.0,"6w_new":17.75,"6w_diff":-1.25,"note":""},{"id":96,"province":"ชลบุรี","district":"อ.บ้านบึง","location":"","distance":180.0,"4w_old":29.0,"4w_new":27.0,"4w_diff":-2.0,"6w_old":17.75,"6w_new":16.75,"6w_diff":-1.0,"note":""},{"id":97,"province":"ชลบุรี","district":"อ.พนัสนิคม","location":"","distance":178.0,"4w_old":27.5,"4w_new":25.75,"4w_diff":-1.75,"6w_old":17.75,"6w_new":16.75,"6w_diff":-1.0,"note":""},{"id":98,"province":"ชลบุรี","district":"อ.พานทอง","location":"","distance":175.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":17.75,"6w_new":16.75,"6w_diff":-1.0,"note":""},{"id":99,"province":"ชลบุรี","district":"อ.ศรีราชา","location":"ร้านเถ้าแก่ต็อป","distance":214.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":19.0,"6w_new":17.75,"6w_diff":-1.25,"note":""},{"id":100,"province":"ชลบุรี","district":"อ.ศรีราชา","location":"ห้างหุ้นส่วนจำกัด พีเอสพี เพ็ทช็อป 999","distance":206.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":19.0,"6w_new":17.75,"6w_diff":-1.25,"note":""},{"id":101,"province":"ชลบุรี","district":"อ.ศรีราชา","location":"","distance":198.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":19.0,"6w_new":17.75,"6w_diff":-1.25,"note":""},{"id":102,"province":"ชลบุรี","district":"อ.สัตหีบ","location":"","distance":258.0,"4w_old":31.25,"4w_new":29.25,"4w_diff":-2.0,"6w_old":21.75,"6w_new":20.25,"6w_diff":-1.5,"note":""},{"id":103,"province":"ชลบุรี","district":"อ.หนองใหญ่","location":"","distance":217.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":21.75,"6w_new":20.25,"6w_diff":-1.5,"note":""},{"id":104,"province":"ชัยนาท","district":"กิ่ง อ.เนินขาม","location":"สุขเดือนห้าฟาร์ม","distance":143.0,"4w_old":18.75,"4w_new":17.5,"4w_diff":-1.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":105,"province":"ชัยนาท","district":"กิ่ง อ.เนินขาม","location":"","distance":147.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":15.0,"6w_new":14.0,"6w_diff":-1.0,"note":""},{"id":106,"province":"ชัยนาท","district":"กิ่ง อ.หนองมะโมง","location":"","distance":188.0,"4w_old":22.75,"4w_new":21.25,"4w_diff":-1.5,"6w_old":16.75,"6w_new":15.75,"6w_diff":-1.0,"note":""},{"id":107,"province":"ชัยนาท","district":"อ.เมืองชัยนาท","location":"คุณทวาย อ่างแก้ว","distance":162.0,"4w_old":21.75,"4w_new":20.25,"4w_diff":-1.5,"6w_old":15.25,"6w_new":14.25,"6w_diff":-1.0,"note":""},{"id":108,"province":"ชัยนาท","district":"อ.เมืองชัยนาท","location":"จี พี เพ็ทช็อพ (ร้าน+สวนนก)","distance":156.0,"4w_old":21.75,"4w_new":20.25,"4w_diff":-1.5,"6w_old":16.75,"6w_new":15.75,"6w_diff":-1.0,"note":""},{"id":109,"province":"ชัยนาท","district":"อ.เมืองชัยนาท","location":"","distance":160.0,"4w_old":21.75,"4w_new":20.25,"4w_diff":-1.5,"6w_old":15.25,"6w_new":14.25,"6w_diff":-1.0,"note":""},{"id":110,"province":"ชัยนาท","district":"อ.มโนรมณ์","location":"ร้านบ้านปลาพาณิชย์(กระชังปลาคุณลั่น)","distance":174.0,"4w_old":22.25,"4w_new":20.75,"4w_diff":-1.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":111,"province":"ชัยนาท","district":"อ.มโนรมณ์","location":"","distance":227.0,"4w_old":21.75,"4w_new":20.25,"4w_diff":-1.5,"6w_old":15.25,"6w_new":14.25,"6w_diff":-1.0,"note":""},{"id":112,"province":"ชัยนาท","district":"อ.วัดสิงห์","location":"","distance":170.0,"4w_old":21.75,"4w_new":20.25,"4w_diff":-1.5,"6w_old":16.75,"6w_new":15.75,"6w_diff":-1.0,"note":""},{"id":113,"province":"ชัยนาท","district":"อ.สรรคบุรี","location":"ร้านบ้านปลาพาณิชย์(ร้าน)","distance":149.0,"4w_old":19.0,"4w_new":17.75,"4w_diff":-1.25,"6w_old":16.75,"6w_new":15.75,"6w_diff":-1.0,"note":""},{"id":114,"province":"ชัยนาท","district":"อ.สรรคบุรี","location":"ร้านสรรคบุรีอาหารสัตว์","distance":138.0,"4w_old":19.0,"4w_new":17.75,"4w_diff":-1.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":115,"province":"ชัยนาท","district":"อ.สรรคบุรี","location":"","distance":159.0,"4w_old":19.0,"4w_new":17.75,"4w_diff":-1.25,"6w_old":16.75,"6w_new":15.75,"6w_diff":-1.0,"note":""},{"id":116,"province":"ชัยนาท","district":"อ.สรรพยา","location":"","distance":198.0,"4w_old":21.75,"4w_new":20.25,"4w_diff":-1.5,"6w_old":15.25,"6w_new":14.25,"6w_diff":-1.0,"note":""},{"id":117,"province":"ชัยนาท","district":"อ.หันคา","location":"","distance":139.0,"4w_old":18.5,"4w_new":17.25,"4w_diff":-1.25,"6w_old":13.75,"6w_new":13.0,"6w_diff":-0.75,"note":""},{"id":118,"province":"ชัยภูมิ","district":"กิ่ง อ.ซับใหญ่","location":"","distance":336.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":26.5,"6w_new":24.75,"6w_diff":-1.75,"note":""},{"id":119,"province":"ชัยภูมิ","district":"อ.ภักดีชุมพล","location":"","distance":351.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":31.25,"6w_new":29.25,"6w_diff":-2.0,"note":""},{"id":120,"province":"ชัยภูมิ","district":"อ.เกษตรสมบูรณ์","location":"","distance":429.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":31.25,"6w_new":29.25,"6w_diff":-2.0,"note":""},{"id":121,"province":"ชัยภูมิ","district":"อ.เทพสถิต","location":"","distance":277.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":29.0,"6w_new":27.0,"6w_diff":-2.0,"note":""},{"id":122,"province":"ชัยภูมิ","district":"อ.เนินสง่า","location":"","distance":342.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":26.5,"6w_new":24.75,"6w_diff":-1.75,"note":""},{"id":123,"province":"ชัยภูมิ","district":"อ.เมืองชัยภูมิ","location":"","distance":361.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":29.0,"6w_new":27.0,"6w_diff":-2.0,"note":""},{"id":124,"province":"ชัยภูมิ","district":"อ.แก้งคร้อ","location":"","distance":407.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":30.0,"6w_new":28.0,"6w_diff":-2.0,"note":""},{"id":125,"province":"ชัยภูมิ","district":"อ.คอนสวรรค์","location":"","distance":402.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":30.0,"6w_new":28.0,"6w_diff":-2.0,"note":""},{"id":126,"province":"ชัยภูมิ","district":"อ.จตุรัส","location":"","distance":323.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":25.5,"6w_new":23.75,"6w_diff":-1.75,"note":""},{"id":127,"province":"ชัยภูมิ","district":"อ.ดอนสาร","location":"","distance":473.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":31.25,"6w_new":29.25,"6w_diff":-2.0,"note":""},{"id":128,"province":"ชัยภูมิ","district":"อ.บ้านเขว้า","location":"","distance":355.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":29.0,"6w_new":27.0,"6w_diff":-2.0,"note":""},{"id":129,"province":"ชัยภูมิ","district":"อ.บ้านแท่น","location":"","distance":452.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":31.25,"6w_new":29.25,"6w_diff":-2.0,"note":""},{"id":130,"province":"ชัยภูมิ","district":"อ.บำเหน็จณรงค์","location":"","distance":316.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":25.5,"6w_new":23.75,"6w_diff":-1.75,"note":""},{"id":131,"province":"ชัยภูมิ","district":"อ.ภูเขียว","location":"","distance":443.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":31.25,"6w_new":29.25,"6w_diff":-2.0,"note":""},{"id":132,"province":"ชัยภูมิ","district":"อ.หนองบัวแดง","location":"","distance":404.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":30.0,"6w_new":28.0,"6w_diff":-2.0,"note":""},{"id":133,"province":"ชัยภูมิ","district":"อ.หนองบัวระเหว","location":"","distance":352.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":30.0,"6w_new":28.0,"6w_diff":-2.0,"note":""},{"id":134,"province":"ตราด","district":"อ.เขาสมิง","location":"","distance":384.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":26.75,"6w_new":25.0,"6w_diff":-1.75,"note":""},{"id":135,"province":"ตราด","district":"อ.เมืองตราด","location":"","distance":401.0,"4w_old":56.75,"4w_new":53.0,"4w_diff":-3.75,"6w_old":26.75,"6w_new":25.0,"6w_diff":-1.75,"note":""},{"id":136,"province":"ตราด","district":"อ.แหลมงอบ","location":"","distance":407.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":30.0,"6w_new":28.0,"6w_diff":-2.0,"note":""},{"id":137,"province":"ตราด","district":"อ.คลองใหญ่","location":"","distance":473.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":36.0,"6w_new":33.5,"6w_diff":-2.5,"note":""},{"id":138,"province":"ตราด","district":"อ.บ่อไร","location":"","distance":399.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":30.0,"6w_new":28.0,"6w_diff":-2.0,"note":""},{"id":139,"province":"นครนายก","district":"อ.เมืองนครนายก","location":"บริษัท ณรงค์เกษตรภัณฑ์ จำกัด","distance":178.0,"4w_old":21.75,"4w_new":20.25,"4w_diff":-1.5,"6w_old":16.75,"6w_new":15.75,"6w_diff":-1.0,"note":""},{"id":140,"province":"นครนายก","district":"อ.เมืองนครนายก","location":"","distance":167.0,"4w_old":21.75,"4w_new":20.25,"4w_diff":-1.5,"6w_old":15.25,"6w_new":14.25,"6w_diff":-1.0,"note":""},{"id":141,"province":"นครนายก","district":"อ.บ้านนา","location":"ศิรดา วงศ์รัตนหิรัญ (เอส.พี. ข้าวสาร-อาหารสัตว์)","distance":155.0,"4w_old":20.0,"4w_new":18.75,"4w_diff":-1.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":142,"province":"นครนายก","district":"อ.บ้านนา","location":"","distance":151.0,"4w_old":20.0,"4w_new":18.75,"4w_diff":-1.25,"6w_old":15.25,"6w_new":14.25,"6w_diff":-1.0,"note":""},{"id":143,"province":"นครนายก","district":"อ.ปากพลี","location":"","distance":174.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":15.25,"6w_new":14.25,"6w_diff":-1.0,"note":""},{"id":144,"province":"นครนายก","district":"อ.องครักษ์","location":"ฟาร์มสมไพร","distance":149.0,"4w_old":18.75,"4w_new":17.5,"4w_diff":-1.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":145,"province":"นครนายก","district":"อ.องครักษ์","location":"ฟาร์มสมไพร (อาหารปลาล้วน)","distance":146.0,"4w_old":17.5,"4w_new":16.5,"4w_diff":-1.0,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":146,"province":"นครนายก","district":"อ.องครักษ์","location":"","distance":141.0,"4w_old":18.75,"4w_new":17.5,"4w_diff":-1.25,"6w_old":15.0,"6w_new":14.0,"6w_diff":-1.0,"note":""},{"id":147,"province":"นครปฐม","district":"ตลาดกำแพงแสน","location":"","distance":0.0,"4w_old":8.0,"4w_new":7.75,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":148,"province":"นครปฐม","district":"อ.เมืองนครปฐม","location":"คุณไพโรจน์ เตชะนันท์(นิยม)","distance":48.0,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":7.5,"6w_new":7.25,"6w_diff":-0.25,"note":""},{"id":149,"province":"นครปฐม","district":"อ.เมืองนครปฐม","location":"ร้าน เอ็ม อาหารสัตว์เลี้ยง","distance":33.0,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":150,"province":"นครปฐม","district":"อ.เมืองนครปฐม","location":"ร้านพรวศินเพ็ทช็อป","distance":37.0,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":151,"province":"นครปฐม","district":"อ.เมืองนครปฐม","location":"ร้าน อิ่มอุ่นสัตว์น้ำ","distance":42.0,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":"ใช้รถบิ๊คขนส่ง"},{"id":152,"province":"นครปฐม","district":"อ.เมืองนครปฐม","location":"","distance":24.3,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":7.0,"6w_new":6.75,"6w_diff":-0.25,"note":""},{"id":153,"province":"นครปฐม","district":"อ.กำแพงแสน","location":"คณะเกษตร กำแพงแสน มหาวิทยาลัยเกษตรศาสตร์","distance":5.0,"4w_old":6.5,"4w_new":6.25,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":154,"province":"นครปฐม","district":"อ.กำแพงแสน","location":"คุณกิจพิทักษ์ ช่างเกิด","distance":13.0,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":155,"province":"นครปฐม","district":"อ.กำแพงแสน","location":"คุณกีรติ มณฑาสุวรรณ(หน้า ม.เกษตร)","distance":5.0,"4w_old":6.5,"4w_new":6.25,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":156,"province":"นครปฐม","district":"อ.กำแพงแสน","location":"คุณศุภกิตติ์ คำมณี","distance":17.0,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":157,"province":"นครปฐม","district":"อ.กำแพงแสน","location":"ฟาร์มเซ็นเตอร์","distance":24.0,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":158,"province":"นครปฐม","district":"อ.กำแพงแสน","location":"","distance":0.0,"4w_old":7.5,"4w_new":7.25,"4w_diff":-0.25,"6w_old":6.5,"6w_new":6.25,"6w_diff":-0.25,"note":""},{"id":159,"province":"นครปฐม","district":"อ.ดอนตูม","location":"คุณกีรติ มณฑาสุวรรณ(ดอนตูม)","distance":27.0,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":160,"province":"นครปฐม","district":"อ.ดอนตูม","location":"","distance":15.0,"4w_old":8.0,"4w_new":7.75,"4w_diff":-0.25,"6w_old":7.0,"6w_new":6.75,"6w_diff":-0.25,"note":""},{"id":161,"province":"นครปฐม","district":"อ.นครชัยศรี","location":"ร้าน เจริญชัย","distance":41.0,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":"ใช้รถบิ๊คขนส่ง"},{"id":162,"province":"นครปฐม","district":"อ.นครชัยศรี","location":"พี พี อาหารสัตว์","distance":55.0,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":8.0,"6w_new":7.75,"6w_diff":-0.25,"note":""},{"id":163,"province":"นครปฐม","district":"อ.นครชัยศรี","location":"","distance":43.5,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":8.0,"6w_new":7.75,"6w_diff":-0.25,"note":""},{"id":164,"province":"นครปฐม","district":"อ.บางเลน","location":"คุณชญานุช เค้าภูไทย","distance":25.0,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":165,"province":"นครปฐม","district":"อ.บางเลน","location":"สิทธิชัย ปานจินดา(ร้านเทพพานิช)","distance":27.0,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":166,"province":"นครปฐม","district":"อ.บางเลน","location":"","distance":23.9,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":7.5,"6w_new":7.25,"6w_diff":-0.25,"note":""},{"id":167,"province":"นครปฐม","district":"อ.พุทธมณฑล","location":"สัมฤทธิ์(ฟาร์ม)","distance":65.0,"4w_old":10.0,"4w_new":9.5,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":168,"province":"นครปฐม","district":"อ.พุทธมณฑล","location":"","distance":61.1,"4w_old":10.0,"4w_new":9.5,"4w_diff":-0.5,"6w_old":9.25,"6w_new":9.0,"6w_diff":-0.25,"note":""},{"id":169,"province":"นครปฐม","district":"อ.พุทธมณฑล สาย 3","location":"","distance":0.0,"4w_old":13.0,"4w_new":12.5,"4w_diff":-0.5,"6w_old":10.0,"6w_new":9.5,"6w_diff":-0.5,"note":""},{"id":170,"province":"นครปฐม","district":"อ.สามพราน","location":"คุณชิษณุพงษ์ นาถึง","distance":56.0,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":171,"province":"นครปฐม","district":"อ.สามพราน","location":"","distance":51.4,"4w_old":10.0,"4w_new":9.5,"4w_diff":-0.5,"6w_old":9.0,"6w_new":8.75,"6w_diff":-0.25,"note":""},{"id":172,"province":"นครราชสีมา","district":"กิ่ง อ.บัวลาย","location":"","distance":386.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":31.25,"6w_new":29.25,"6w_diff":-2.0,"note":""},{"id":173,"province":"นครราชสีมา","district":"กิ่ง อ.ลำทะเมนชัย","location":"","distance":402.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":30.0,"6w_new":28.0,"6w_diff":-2.0,"note":""},{"id":174,"province":"นครราชสีมา","district":"กิ่ง อ.สีดา","location":"","distance":373.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":30.0,"6w_new":28.0,"6w_diff":-2.0,"note":""},{"id":175,"province":"นครราชสีมา","district":"อ.เฉลิมพระเกียรติ","location":"","distance":316.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":26.5,"6w_new":24.75,"6w_diff":-1.75,"note":""},{"id":176,"province":"นครราชสีมา","district":"อ.เมืองนครราชสีมา","location":"","distance":285.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":25.5,"6w_new":23.75,"6w_diff":-1.75,"note":""},{"id":177,"province":"นครราชสีมา","district":"อ.เสิงสาง","location":"","distance":350.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":27.75,"6w_new":26.0,"6w_diff":-1.75,"note":""},{"id":178,"province":"นครราชสีมา","district":"อ.แก้งสนามราง","location":"","distance":0.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":179,"province":"นครราชสีมา","district":"อ.โชคชัย","location":"","distance":293.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":25.5,"6w_new":23.75,"6w_diff":-1.75,"note":""},{"id":180,"province":"นครราชสีมา","district":"อ.โนนแดง","location":"","distance":359.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":29.0,"6w_new":27.0,"6w_diff":-2.0,"note":""},{"id":181,"province":"นครราชสีมา","district":"อ.โนนไทย","location":"","distance":313.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":27.75,"6w_new":26.0,"6w_diff":-1.75,"note":""},{"id":182,"province":"นครราชสีมา","district":"อ.โนนสูง","location":"","distance":322.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":30.0,"6w_new":28.0,"6w_diff":-2.0,"note":""},{"id":183,"province":"นครราชสีมา","district":"อ.ขามทะเลสอ","location":"","distance":272.0,"4w_old":41.25,"4w_new":38.5,"4w_diff":-2.75,"6w_old":25.5,"6w_new":23.75,"6w_diff":-1.75,"note":""},{"id":184,"province":"นครราชสีมา","district":"อ.ขามสแกแสง","location":"","distance":0.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":185,"province":"นครราชสีมา","district":"อ.ครบุรี","location":"","distance":322.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":26.5,"6w_new":24.75,"6w_diff":-1.75,"note":""},{"id":186,"province":"นครราชสีมา","district":"อ.จักราช","location":"","distance":340.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":27.75,"6w_new":26.0,"6w_diff":-1.75,"note":""},{"id":187,"province":"นครราชสีมา","district":"อ.ชุมพวง","location":"","distance":382.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":27.75,"6w_new":26.0,"6w_diff":-1.75,"note":""},{"id":188,"province":"นครราชสีมา","district":"อ.ดง","location":"","distance":399.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":30.0,"6w_new":28.0,"6w_diff":-2.0,"note":""},{"id":189,"province":"นครราชสีมา","district":"อ.ด่านขุนทด","location":"","distance":280.0,"4w_old":36.75,"4w_new":34.25,"4w_diff":-2.5,"6w_old":24.0,"6w_new":22.5,"6w_diff":-1.5,"note":""},{"id":190,"province":"นครราชสีมา","district":"อ.บัวใหญ่","location":"","distance":377.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":30.0,"6w_new":28.0,"6w_diff":-2.0,"note":""},{"id":191,"province":"นครราชสีมา","district":"อ.บ้านเลื่อม","location":"","distance":351.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":29.0,"6w_new":27.0,"6w_diff":-2.0,"note":""},{"id":192,"province":"นครราชสีมา","district":"อ.ประทาย","location":"","distance":390.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":30.0,"6w_new":28.0,"6w_diff":-2.0,"note":""},{"id":193,"province":"นครราชสีมา","district":"อ.ปักธงชัย","location":"","distance":283.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":24.0,"6w_new":22.5,"6w_diff":-1.5,"note":""},{"id":194,"province":"นครราชสีมา","district":"อ.ปากช่อง","location":"คณะสัตวแพทยศาสตร์ ม.เกษตร (โคราช)ส่งที่ศูนย์พักพิงสัตว์เลี้ยงไร้บ้าน นครชัยบุรินทร์","distance":209.0,"4w_old":26.75,"4w_new":25.0,"4w_diff":-1.75,"6w_old":22.75,"6w_new":21.25,"6w_diff":-1.5,"note":""},{"id":195,"province":"นครราชสีมา","district":"อ.ปากช่อง","location":"","distance":200.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":22.75,"6w_new":21.25,"6w_diff":-1.5,"note":""},{"id":196,"province":"นครราชสีมา","district":"อ.พิมาย","location":"","distance":346.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":27.75,"6w_new":26.0,"6w_diff":-1.75,"note":""},{"id":197,"province":"นครราชสีมา","district":"อ.วังน้ำเขียว","location":"","distance":302.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":22.75,"6w_new":21.25,"6w_diff":-1.5,"note":""},{"id":198,"province":"นครราชสีมา","district":"อ.สีคิ้ว","location":"","distance":246.0,"4w_old":32.75,"4w_new":30.5,"4w_diff":-2.25,"6w_old":22.75,"6w_new":21.25,"6w_diff":-1.5,"note":""},{"id":199,"province":"นครราชสีมา","district":"อ.สูงเนิน","location":"","distance":255.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":24.0,"6w_new":22.5,"6w_diff":-1.5,"note":""},{"id":200,"province":"นครราชสีมา","district":"อ.หนองบุนนาค","location":"","distance":0.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":25.0,"6w_new":23.75,"6w_diff":-1.25,"note":""},{"id":201,"province":"นครราชสีมา","district":"อ.ห้วยแถลง","location":"","distance":380.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":27.75,"6w_new":26.0,"6w_diff":-1.75,"note":""},{"id":202,"province":"นครสวรรค์","district":"กิ่ง อ.แม่เปิน","location":"","distance":243.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":22.25,"6w_new":20.75,"6w_diff":-1.5,"note":""},{"id":203,"province":"นครสวรรค์","district":"กิ่ง อ.ชุมตาบง","location":"","distance":232.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":18.75,"6w_new":17.5,"6w_diff":-1.25,"note":""},{"id":204,"province":"นครสวรรค์","district":"อ.เก้าเลี้ยว","location":"","distance":282.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":20.0,"6w_new":18.75,"6w_diff":-1.25,"note":""},{"id":205,"province":"นครสวรรค์","district":"อ.เมืองนครสวรรค์","location":"","distance":263.0,"4w_old":31.25,"4w_new":29.25,"4w_diff":-2.0,"6w_old":17.5,"6w_new":16.5,"6w_diff":-1.0,"note":""},{"id":206,"province":"นครสวรรค์","district":"อ.แม่วงค์","location":"คุณเกียรติศักดิ์ อินวารีย์","distance":265.0,"4w_old":32.75,"4w_new":30.5,"4w_diff":-2.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":207,"province":"นครสวรรค์","district":"อ.แม่วงค์","location":"","distance":250.0,"4w_old":32.75,"4w_new":30.5,"4w_diff":-2.25,"6w_old":24.25,"6w_new":22.75,"6w_diff":-1.5,"note":""},{"id":208,"province":"นครสวรรค์","district":"อ.โกรกพระ","location":"","distance":252.0,"4w_old":29.75,"4w_new":27.75,"4w_diff":-2.0,"6w_old":20.0,"6w_new":18.75,"6w_diff":-1.25,"note":""},{"id":209,"province":"นครสวรรค์","district":"อ.ไพศาลี","location":"","distance":212.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":22.25,"6w_new":20.75,"6w_diff":-1.5,"note":""},{"id":210,"province":"นครสวรรค์","district":"อ.ชุมแสง","location":"","distance":299.0,"4w_old":33.75,"4w_new":31.5,"4w_diff":-2.25,"6w_old":20.0,"6w_new":18.75,"6w_diff":-1.25,"note":""},{"id":211,"province":"นครสวรรค์","district":"อ.ตากฟ้า","location":"ร้านพานทองพานิช","distance":201.0,"4w_old":25.75,"4w_new":24.0,"4w_diff":-1.75,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":"ใช้รถบิ๊คขนส่ง"},{"id":212,"province":"นครสวรรค์","district":"อ.ตากฟ้า","location":"","distance":223.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":20.0,"6w_new":18.75,"6w_diff":-1.25,"note":""},{"id":213,"province":"นครสวรรค์","district":"อ.ตาคลี","location":"","distance":216.0,"4w_old":31.25,"4w_new":29.25,"4w_diff":-2.0,"6w_old":21.0,"6w_new":19.75,"6w_diff":-1.25,"note":""},{"id":214,"province":"นครสวรรค์","district":"อ.ท่าตะโก","location":"","distance":263.0,"4w_old":32.75,"4w_new":30.5,"4w_diff":-2.25,"6w_old":23.25,"6w_new":21.75,"6w_diff":-1.5,"note":""},{"id":215,"province":"นครสวรรค์","district":"อ.บรรพตพิสัย","location":"","distance":298.0,"4w_old":33.75,"4w_new":31.5,"4w_diff":-2.25,"6w_old":22.25,"6w_new":20.75,"6w_diff":-1.5,"note":""},{"id":216,"province":"นครสวรรค์","district":"อ.พยุหคีรี","location":"","distance":238.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":16.5,"6w_new":15.5,"6w_diff":-1.0,"note":""},{"id":217,"province":"นครสวรรค์","district":"อ.ลาดยาว","location":"","distance":298.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":18.75,"6w_new":17.5,"6w_diff":-1.25,"note":""},{"id":218,"province":"นครสวรรค์","district":"อ.หนองบัว","location":"","distance":284.0,"4w_old":32.75,"4w_new":30.5,"4w_diff":-2.25,"6w_old":23.25,"6w_new":21.75,"6w_diff":-1.5,"note":""},{"id":219,"province":"นนทบุรี","district":"อ.เมืองนนทบุรี","location":"","distance":79.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":9.25,"6w_new":9.0,"6w_diff":-0.25,"note":""},{"id":220,"province":"นนทบุรี","district":"อ.ไทรน้อย","location":"บริษัท แพรพลอย เพ็ทสโตร์ จำกัด","distance":45.0,"4w_old":11.5,"4w_new":11.0,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":221,"province":"นนทบุรี","district":"อ.ไทรน้อย","location":"","distance":46.0,"4w_old":11.5,"4w_new":11.0,"4w_diff":-0.5,"6w_old":8.0,"6w_new":7.75,"6w_diff":-0.25,"note":""},{"id":222,"province":"นนทบุรี","district":"อ.บางใหญ่","location":"","distance":80.0,"4w_old":13.5,"4w_new":13.0,"4w_diff":-0.5,"6w_old":8.25,"6w_new":8.0,"6w_diff":-0.25,"note":""},{"id":223,"province":"นนทบุรี","district":"อ.บางกรวย","location":"","distance":78.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":8.25,"6w_new":8.0,"6w_diff":-0.25,"note":""},{"id":224,"province":"นนทบุรี","district":"อ.บางบัวทอง","location":"สัมฤทธิ์(นนทบุรี)","distance":78.0,"4w_old":13.5,"4w_new":13.0,"4w_diff":-0.5,"6w_old":8.25,"6w_new":8.0,"6w_diff":-0.25,"note":""},{"id":225,"province":"นนทบุรี","district":"อ.บางบัวทอง","location":"","distance":55.4,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":8.25,"6w_new":8.0,"6w_diff":-0.25,"note":""},{"id":226,"province":"นนทบุรี","district":"อ.ปากเกร็ด","location":"","distance":70.6,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":8.25,"6w_new":8.0,"6w_diff":-0.25,"note":""},{"id":227,"province":"บุรีรัมย์","district":"อ.เฉลิมพระเกียติ","location":"","distance":384.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":29.0,"6w_new":27.0,"6w_diff":-2.0,"note":""},{"id":228,"province":"บุรีรัมย์","district":"อ.เมืองบุรีรัมย์","location":"","distance":420.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":30.0,"6w_new":28.0,"6w_diff":-2.0,"note":""},{"id":229,"province":"บุรีรัมย์","district":"อ.แคนดง","location":"","distance":427.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":30.0,"6w_new":28.0,"6w_diff":-2.0,"note":""},{"id":230,"province":"บุรีรัมย์","district":"อ.โนนดินแดง","location":"","distance":399.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":29.0,"6w_new":27.0,"6w_diff":-2.0,"note":""},{"id":231,"province":"บุรีรัมย์","district":"อ.โนนสุวรรณ","location":"","distance":360.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":29.0,"6w_new":27.0,"6w_diff":-2.0,"note":""},{"id":232,"province":"บุรีรัมย์","district":"อ.กระสังข์","location":"","distance":441.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":30.0,"6w_new":28.0,"6w_diff":-2.0,"note":""},{"id":233,"province":"บุรีรัมย์","district":"อ.คูเมือง","location":"","distance":422.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":30.0,"6w_new":28.0,"6w_diff":-2.0,"note":""},{"id":234,"province":"บุรีรัมย์","district":"อ.ชำนิ","location":"","distance":382.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":29.0,"6w_new":27.0,"6w_diff":-2.0,"note":""},{"id":235,"province":"บุรีรัมย์","district":"อ.นาโพธิ์","location":"","distance":427.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":30.0,"6w_new":28.0,"6w_diff":-2.0,"note":""},{"id":236,"province":"บุรีรัมย์","district":"อ.นางรอง","location":"","distance":363.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":26.75,"6w_new":25.0,"6w_diff":-1.75,"note":""},{"id":237,"province":"บุรีรัมย์","district":"อ.บ้านใหม่ไชยพจน์","location":"","distance":404.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":30.0,"6w_new":28.0,"6w_diff":-2.0,"note":""},{"id":238,"province":"บุรีรัมย์","district":"อ.บ้านกรวด","location":"","distance":415.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":29.0,"6w_new":27.0,"6w_diff":-2.0,"note":""},{"id":239,"province":"บุรีรัมย์","district":"อ.ประโคนชัย","location":"","distance":398.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":29.0,"6w_new":27.0,"6w_diff":-2.0,"note":""},{"id":240,"province":"บุรีรัมย์","district":"อ.ประคำ","location":"","distance":384.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":29.0,"6w_new":27.0,"6w_diff":-2.0,"note":""},{"id":241,"province":"บุรีรัมย์","district":"อ.พลับพลาชัย","location":"","distance":411.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":29.0,"6w_new":27.0,"6w_diff":-2.0,"note":""},{"id":242,"province":"บุรีรัมย์","district":"อ.พุทโธสง","location":"","distance":425.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":30.0,"6w_new":28.0,"6w_diff":-2.0,"note":""},{"id":243,"province":"บุรีรัมย์","district":"อ.ละหารทราย","location":"","distance":392.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":29.0,"6w_new":27.0,"6w_diff":-2.0,"note":""},{"id":244,"province":"บุรีรัมย์","district":"อ.ลำปลายมาศ","location":"","distance":424.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":29.0,"6w_new":27.0,"6w_diff":-2.0,"note":""},{"id":245,"province":"บุรีรัมย์","district":"อ.สตึก","location":"","distance":444.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":30.0,"6w_new":28.0,"6w_diff":-2.0,"note":""},{"id":246,"province":"บุรีรัมย์","district":"อ.หนองกี่","location":"","distance":333.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":27.75,"6w_new":26.0,"6w_diff":-1.75,"note":""},{"id":247,"province":"บุรีรัมย์","district":"อ.หนองหงษ์","location":"","distance":364.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":29.0,"6w_new":27.0,"6w_diff":-2.0,"note":""},{"id":248,"province":"บุรีรัมย์","district":"อ.ห้วยราช","location":"","distance":425.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":31.25,"6w_new":29.25,"6w_diff":-2.0,"note":""},{"id":249,"province":"ปทุมธานี","district":"อ.เมืองปทุมธานี","location":"บริษัท ปทุมรัฐ เวิลด์ จำกัด","distance":69.0,"4w_old":12.25,"4w_new":11.75,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":250,"province":"ปทุมธานี","district":"อ.เมืองปทุมธานี","location":"","distance":75.7,"4w_old":12.25,"4w_new":11.75,"4w_diff":-0.5,"6w_old":9.5,"6w_new":9.25,"6w_diff":-0.25,"note":""},{"id":251,"province":"ปทุมธานี","district":"อ.คลองหลวง","location":"","distance":97.9,"4w_old":14.25,"4w_new":13.75,"4w_diff":-0.5,"6w_old":12.25,"6w_new":11.75,"6w_diff":-0.5,"note":""},{"id":252,"province":"ปทุมธานี","district":"อ.ธัญบุรี","location":"","distance":110.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":11.5,"6w_new":10.75,"6w_diff":-0.75,"note":""},{"id":253,"province":"ปทุมธานี","district":"อ.ลาดหลุมแก้ว","location":"ร้านดีเลย(ลาดหลุมแก้ว)","distance":60.0,"4w_old":12.25,"4w_new":11.75,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":254,"province":"ปทุมธานี","district":"อ.ลาดหลุมแก้ว","location":"","distance":51.5,"4w_old":12.25,"4w_new":11.75,"4w_diff":-0.5,"6w_old":7.75,"6w_new":7.5,"6w_diff":-0.25,"note":""},{"id":255,"province":"ปทุมธานี","district":"อ.ลำลูกกา","location":"","distance":121.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":13.0,"6w_new":12.25,"6w_diff":-0.75,"note":""},{"id":256,"province":"ปทุมธานี","district":"อ.สามโคก","location":"ร้านดีเลย(สามโคก)","distance":98.0,"4w_old":12.25,"4w_new":11.75,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":257,"province":"ปทุมธานี","district":"อ.สามโคก","location":"","distance":70.1,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":9.5,"6w_new":9.25,"6w_diff":-0.25,"note":""},{"id":258,"province":"ปทุมธานี","district":"อ.หนองเสือ","location":"","distance":117.0,"4w_old":15.25,"4w_new":14.25,"4w_diff":-1.0,"6w_old":13.0,"6w_new":12.25,"6w_diff":-0.75,"note":""},{"id":259,"province":"ประจวบคีรีขันธ์","district":"อ.เมืองประจวบฯ","location":"","distance":290.0,"4w_old":39.25,"4w_new":36.75,"4w_diff":-2.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":260,"province":"ประจวบคีรีขันธ์","district":"อ.กุยบุรี","location":"","distance":266.0,"4w_old":30.0,"4w_new":28.0,"4w_diff":-2.0,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":261,"province":"ประจวบคีรีขันธ์","district":"อ.ปราณบุรี","location":"","distance":226.0,"4w_old":27.75,"4w_new":26.0,"4w_diff":-1.75,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":262,"province":"ประจวบคีรีขันธ์","district":"อ.สามร้อยยอด","location":"","distance":235.0,"4w_old":30.0,"4w_new":28.0,"4w_diff":-2.0,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":263,"province":"ประจวบคีรีขันธ์","district":"อ.หัวหิน","location":"","distance":198.0,"4w_old":24.25,"4w_new":22.75,"4w_diff":-1.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":264,"province":"ปราจีนบุรี","district":"อ.เมืองปราจีนบุรี","location":"","distance":194.0,"4w_old":29.75,"4w_new":27.75,"4w_diff":-2.0,"6w_old":16.5,"6w_new":15.5,"6w_diff":-1.0,"note":""},{"id":265,"province":"ปราจีนบุรี","district":"อ.กบินทร์บุรี","location":"ร้านอึ้งง่วนเฮง","distance":246.0,"4w_old":29.75,"4w_new":27.75,"4w_diff":-2.0,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":266,"province":"ปราจีนบุรี","district":"อ.กบินทร์บุรี","location":"","distance":247.0,"4w_old":29.75,"4w_new":27.75,"4w_diff":-2.0,"6w_old":18.75,"6w_new":17.5,"6w_diff":-1.25,"note":""},{"id":267,"province":"ปราจีนบุรี","district":"อ.นาดี","location":"","distance":246.0,"4w_old":29.75,"4w_new":27.75,"4w_diff":-2.0,"6w_old":18.75,"6w_new":17.5,"6w_diff":-1.25,"note":""},{"id":268,"province":"ปราจีนบุรี","district":"อ.บ้านสร้าง","location":"","distance":179.0,"4w_old":29.75,"4w_new":27.75,"4w_diff":-2.0,"6w_old":16.5,"6w_new":15.5,"6w_diff":-1.0,"note":""},{"id":269,"province":"ปราจีนบุรี","district":"อ.ประจันตคาม","location":"","distance":208.0,"4w_old":29.75,"4w_new":27.75,"4w_diff":-2.0,"6w_old":17.5,"6w_new":16.5,"6w_diff":-1.0,"note":""},{"id":270,"province":"ปราจีนบุรี","district":"อ.ศรีมโหสถ","location":"","distance":211.0,"4w_old":29.75,"4w_new":27.75,"4w_diff":-2.0,"6w_old":18.75,"6w_new":17.5,"6w_diff":-1.25,"note":""},{"id":271,"province":"ปราจีนบุรี","district":"อ.ศรีมหาโพธิ์","location":"","distance":219.0,"4w_old":29.75,"4w_new":27.75,"4w_diff":-2.0,"6w_old":17.5,"6w_new":16.5,"6w_diff":-1.0,"note":""},{"id":272,"province":"พระนครศรีอยุธยา","district":"อ.เมืองพระนครศรีอยุธยา","location":"บริษัท กิตติศักดิ์ เพ็ทมาร์ท จำกัด","distance":115.0,"4w_old":15.25,"4w_new":14.25,"4w_diff":-1.0,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":"ใช้เรท 13บาท ขั้นต่ำ 140ถุง พิกัดอยู่ อ.เมือง ไปจริงแยกไปทางเสนา"},{"id":273,"province":"พระนครศรีอยุธยา","district":"อ.เมืองพระนครศรีอยุธยา","location":"","distance":117.0,"4w_old":15.25,"4w_new":14.25,"4w_diff":-1.0,"6w_old":11.5,"6w_new":10.75,"6w_diff":-0.75,"note":""},{"id":274,"province":"พระนครศรีอยุธยา","district":"อ.เสนา","location":"พระคุณเพ็ทช็อป","distance":94.4,"4w_old":14.75,"4w_new":14.25,"4w_diff":-0.5,"6w_old":11.5,"6w_new":11.0,"6w_diff":-0.5,"note":"ใช้รถบิ๊คขนส่ง"},{"id":275,"province":"พระนครศรีอยุธยา","district":"อ.เสนา","location":"","distance":82.7,"4w_old":14.75,"4w_new":14.25,"4w_diff":-0.5,"6w_old":10.75,"6w_new":10.25,"6w_diff":-0.5,"note":""},{"id":276,"province":"พระนครศรีอยุธยา","district":"อ.ท่าเรือ","location":"","distance":144.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":15.0,"6w_new":14.0,"6w_diff":-1.0,"note":""},{"id":277,"province":"พระนครศรีอยุธยา","district":"อ.นครหลวง","location":"","distance":120.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":15.0,"6w_new":14.0,"6w_diff":-1.0,"note":""},{"id":278,"province":"พระนครศรีอยุธยา","district":"อ.บางไทร","location":"","distance":80.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":10.75,"6w_new":10.25,"6w_diff":-0.5,"note":""},{"id":279,"province":"พระนครศรีอยุธยา","district":"อ.บางซ้าย","location":"","distance":85.8,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":10.75,"6w_new":10.25,"6w_diff":-0.5,"note":""},{"id":280,"province":"พระนครศรีอยุธยา","district":"อ.บางบาล","location":"","distance":95.6,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":13.25,"6w_new":12.75,"6w_diff":-0.5,"note":""},{"id":281,"province":"พระนครศรีอยุธยา","district":"อ.บางประหัน","location":"","distance":111.0,"4w_old":17.25,"4w_new":16.25,"4w_diff":-1.0,"6w_old":14.0,"6w_new":13.25,"6w_diff":-0.75,"note":""},{"id":282,"province":"พระนครศรีอยุธยา","district":"อ.บางประอิน","location":"","distance":65.0,"4w_old":14.25,"4w_new":13.75,"4w_diff":-0.5,"6w_old":10.75,"6w_new":10.25,"6w_diff":-0.5,"note":""},{"id":283,"province":"พระนครศรีอยุธยา","district":"อ.บ้านแพรก","location":"","distance":142.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":13.75,"6w_new":13.0,"6w_diff":-0.75,"note":""},{"id":284,"province":"พระนครศรีอยุธยา","district":"อ.ผักไห่","location":"","distance":101.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":13.75,"6w_new":13.0,"6w_diff":-0.75,"note":""},{"id":285,"province":"พระนครศรีอยุธยา","district":"อ.ภาชี","location":"","distance":134.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":13.75,"6w_new":13.0,"6w_diff":-0.75,"note":""},{"id":286,"province":"พระนครศรีอยุธยา","district":"อ.มหาราช","location":"","distance":121.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":15.0,"6w_new":14.0,"6w_diff":-1.0,"note":""},{"id":287,"province":"พระนครศรีอยุธยา","district":"อ.ลาดบัวหลวง","location":"เหมียวเพ็ทช็อป(ร้านเดียวกับอ้อเพื่อนรักสัตว์เลี้ยง)","distance":55.0,"4w_old":10.75,"4w_new":10.25,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":288,"province":"พระนครศรีอยุธยา","district":"อ.ลาดบัวหลวง","location":"","distance":58.7,"4w_old":10.75,"4w_new":10.25,"4w_diff":-0.5,"6w_old":8.75,"6w_new":8.5,"6w_diff":-0.25,"note":""},{"id":289,"province":"พระนครศรีอยุธยา","district":"อ.วังน้อย","location":"","distance":99.4,"4w_old":15.75,"4w_new":15.0,"4w_diff":-0.75,"6w_old":12.25,"6w_new":11.75,"6w_diff":-0.5,"note":""},{"id":290,"province":"พระนครศรีอยุธยา","district":"อ.อุทัย","location":"คุณวันทิตา คำพันธ์","distance":114.0,"4w_old":19.0,"4w_new":17.75,"4w_diff":-1.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":"แยกไปทางสระบุรี"},{"id":291,"province":"พระนครศรีอยุธยา","district":"อ.อุทัย","location":"","distance":110.0,"4w_old":19.0,"4w_new":17.75,"4w_diff":-1.25,"6w_old":15.0,"6w_new":14.0,"6w_diff":-1.0,"note":""},{"id":292,"province":"พิจิตร","district":"กิ่ง อ.ดงเจริญ","location":"","distance":312.0,"4w_old":40.0,"4w_new":37.25,"4w_diff":-2.75,"6w_old":23.25,"6w_new":21.75,"6w_diff":-1.5,"note":""},{"id":293,"province":"พิจิตร","district":"กิ่ง อ.บึงนาราง","location":"","distance":314.0,"4w_old":40.0,"4w_new":37.25,"4w_diff":-2.75,"6w_old":22.25,"6w_new":20.75,"6w_diff":-1.5,"note":""},{"id":294,"province":"พิจิตร","district":"กิ่ง อ.สากเหล็ก","location":"","distance":360.0,"4w_old":40.0,"4w_new":37.25,"4w_diff":-2.75,"6w_old":24.25,"6w_new":22.75,"6w_diff":-1.5,"note":""},{"id":295,"province":"พิจิตร","district":"อ.เมืองพิจิตร","location":"","distance":364.0,"4w_old":43.75,"4w_new":40.75,"4w_diff":-3.0,"6w_old":24.25,"6w_new":22.75,"6w_diff":-1.5,"note":""},{"id":296,"province":"พิจิตร","district":"อ.โพทะเล","location":"","distance":329.0,"4w_old":43.75,"4w_new":40.75,"4w_diff":-3.0,"6w_old":23.25,"6w_new":21.75,"6w_diff":-1.5,"note":""},{"id":297,"province":"พิจิตร","district":"อ.โพธิ์ประทับช้าง","location":"","distance":346.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":23.25,"6w_new":21.75,"6w_diff":-1.5,"note":""},{"id":298,"province":"พิจิตร","district":"อ.ตะพานหิน","location":"","distance":337.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":24.25,"6w_new":22.75,"6w_diff":-1.5,"note":""},{"id":299,"province":"พิจิตร","district":"อ.ทับคล้อ","location":"","distance":317.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":23.25,"6w_new":21.75,"6w_diff":-1.5,"note":""},{"id":300,"province":"พิจิตร","district":"อ.บางมูลนาก","location":"","distance":318.0,"4w_old":40.0,"4w_new":37.25,"4w_diff":-2.75,"6w_old":23.25,"6w_new":21.75,"6w_diff":-1.5,"note":""},{"id":301,"province":"พิจิตร","district":"อ.วชิรบารมี","location":"","distance":356.0,"4w_old":40.0,"4w_new":37.25,"4w_diff":-2.75,"6w_old":23.25,"6w_new":21.75,"6w_diff":-1.5,"note":""},{"id":302,"province":"พิจิตร","district":"อ.วังทรายพูน","location":"","distance":343.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":24.25,"6w_new":22.75,"6w_diff":-1.5,"note":""},{"id":303,"province":"พิจิตร","district":"อ.สมง่าม","location":"","distance":359.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":23.25,"6w_new":21.75,"6w_diff":-1.5,"note":""},{"id":304,"province":"พิษณุโลก","district":"อ.เนินมะปราง","location":"","distance":372.0,"4w_old":50.0,"4w_new":46.5,"4w_diff":-3.5,"6w_old":26.75,"6w_new":25.0,"6w_diff":-1.75,"note":""},{"id":305,"province":"พิษณุโลก","district":"อ.เมืองพิษณุโลก","location":"","distance":393.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":25.75,"6w_new":24.0,"6w_diff":-1.75,"note":""},{"id":306,"province":"พิษณุโลก","district":"อ.ชาติตระการ","location":"","distance":498.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":30.0,"6w_new":28.0,"6w_diff":-2.0,"note":""},{"id":307,"province":"พิษณุโลก","district":"อ.นครไทย","location":"","distance":473.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":30.0,"6w_new":28.0,"6w_diff":-2.0,"note":""},{"id":308,"province":"พิษณุโลก","district":"อ.บางกระทุ่ม","location":"","distance":381.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":25.75,"6w_new":24.0,"6w_diff":-1.75,"note":""},{"id":309,"province":"พิษณุโลก","district":"อ.บางระกำ","location":"","distance":382.0,"4w_old":43.75,"4w_new":40.75,"4w_diff":-3.0,"6w_old":24.25,"6w_new":22.75,"6w_diff":-1.5,"note":""},{"id":310,"province":"พิษณุโลก","district":"อ.พรหมพิราม","location":"","distance":426.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":26.75,"6w_new":25.0,"6w_diff":-1.75,"note":""},{"id":311,"province":"พิษณุโลก","district":"อ.วังทอง","location":"","distance":395.0,"4w_old":48.5,"4w_new":45.25,"4w_diff":-3.25,"6w_old":26.75,"6w_new":25.0,"6w_diff":-1.75,"note":""},{"id":312,"province":"พิษณุโลก","district":"อ.วัดโบสถ์","location":"","distance":417.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":27.75,"6w_new":26.0,"6w_diff":-1.75,"note":""},{"id":313,"province":"ระยอง","district":"กิ่ง อ.เขาชะเมา","location":"","distance":269.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":23.25,"6w_new":21.75,"6w_diff":-1.5,"note":""},{"id":314,"province":"ระยอง","district":"กิ่ง อ.นิคมวัฒนา","location":"","distance":249.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":22.25,"6w_new":20.75,"6w_diff":-1.5,"note":""},{"id":315,"province":"ระยอง","district":"อ.เมืองระยอง","location":"","distance":263.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":22.25,"6w_new":20.75,"6w_diff":-1.5,"note":""},{"id":316,"province":"ระยอง","district":"อ.แกลง","location":"","distance":269.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":21.0,"6w_new":19.75,"6w_diff":-1.25,"note":""},{"id":317,"province":"ระยอง","district":"อ.บ้านค่าย","location":"","distance":262.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":22.25,"6w_new":20.75,"6w_diff":-1.5,"note":""},{"id":318,"province":"ระยอง","district":"อ.บ้านค่าย","location":"","distance":262.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":21.0,"6w_new":19.75,"6w_diff":-1.25,"note":""},{"id":319,"province":"ระยอง","district":"อ.ปลวกแดง","location":"","distance":237.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":20.0,"6w_new":18.75,"6w_diff":-1.25,"note":""},{"id":320,"province":"ระยอง","district":"อ.วังจันทร์","location":"","distance":245.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":20.0,"6w_new":18.75,"6w_diff":-1.25,"note":""},{"id":321,"province":"ราชบุรี","district":"กิ่ง อ.บ้านคา","location":"","distance":119.0,"4w_old":16.75,"4w_new":15.75,"4w_diff":-1.0,"6w_old":13.0,"6w_new":12.25,"6w_diff":-0.75,"note":""},{"id":322,"province":"ราชบุรี","district":"อ.เมืองราชบุรี","location":"คุณสุนทรีย์ ทองอ่อน(ร้านเดียวกับกิจเจริญทรัพย์)","distance":83.0,"4w_old":11.5,"4w_new":11.0,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":323,"province":"ราชบุรี","district":"อ.เมืองราชบุรี","location":"พระลักษณ์ฟาร์ม","distance":96.0,"4w_old":11.5,"4w_new":11.0,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":324,"province":"ราชบุรี","district":"อ.เมืองราชบุรี","location":"พี่น้องฟาร์ม สาขา2","distance":96.0,"4w_old":12.75,"4w_new":12.25,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":325,"province":"ราชบุรี","district":"อ.เมืองราชบุรี","location":"","distance":70.5,"4w_old":11.5,"4w_new":11.0,"4w_diff":-0.5,"6w_old":8.75,"6w_new":8.5,"6w_diff":-0.25,"note":""},{"id":326,"province":"ราชบุรี","district":"อ.เมืองราชบุรี","location":"ควรคิดฟาร์ม","distance":70.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":9.5,"6w_new":9.25,"6w_diff":-0.25,"note":""},{"id":327,"province":"ราชบุรี","district":"อ.เมืองราชบุรี","location":"ควรคิดฟาร์ม(ที่ใหม่)","distance":72.4,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":9.5,"6w_new":9.25,"6w_diff":-0.25,"note":""},{"id":328,"province":"ราชบุรี","district":"อ.เมืองราชบุรี","location":"","distance":70.5,"4w_old":11.5,"4w_new":11.0,"4w_diff":-0.5,"6w_old":8.75,"6w_new":8.5,"6w_diff":-0.25,"note":""},{"id":329,"province":"ราชบุรี","district":"อ.โพธาราม","location":"คุณวันเพ็ญ พลับอิน(ร้านรวงข้าว)","distance":62.0,"4w_old":11.5,"4w_new":11.0,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":330,"province":"ราชบุรี","district":"อ.โพธาราม","location":"วัฒนชัยการค้า (หนองกวาง)","distance":69.0,"4w_old":11.5,"4w_new":11.0,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":331,"province":"ราชบุรี","district":"อ.โพธาราม","location":"สามพรานฟาร์ม","distance":61.0,"4w_old":11.5,"4w_new":11.0,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":332,"province":"ราชบุรี","district":"อ.โพธาราม","location":"","distance":51.9,"4w_old":11.5,"4w_new":11.0,"4w_diff":-0.5,"6w_old":8.75,"6w_new":8.5,"6w_diff":-0.25,"note":""},{"id":333,"province":"ราชบุรี","district":"อ.จอมบึง","location":"เสถียรฟาร์ม","distance":82.0,"4w_old":11.5,"4w_new":11.0,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":334,"province":"ราชบุรี","district":"อ.จอมบึง","location":"บริษัท พระลักษณ์ฟาร์ม 1643 (ลูกค้า)จำกัด","distance":88.0,"4w_old":14.25,"4w_new":13.75,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":"ราคาสูงเพราะต้องไปพ่นน้ำยาอีกที่หนึ่ง"},{"id":335,"province":"ราชบุรี","district":"อ.จอมบึง","location":"บริษัท หมูไทย จำกัด (วันครู1)","distance":80.0,"4w_old":11.5,"4w_new":11.0,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":"อยู่ใกล้วันครู2"},{"id":336,"province":"ราชบุรี","district":"อ.จอมบึง","location":"วัฒนชัยการค้า (หนองนกกระเรียน จอมบึง)","distance":96.0,"4w_old":12.75,"4w_new":12.25,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":337,"province":"ราชบุรี","district":"อ.จอมบึง","location":"","distance":85.2,"4w_old":11.5,"4w_new":11.0,"4w_diff":-0.5,"6w_old":9.5,"6w_new":9.25,"6w_diff":-0.25,"note":""},{"id":338,"province":"ราชบุรี","district":"อ.ดำเนินสะดวก","location":"คุณภูชิต พงษ์แสร์ / คุณแก้วตา พงษ์แสร์","distance":68.3,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":9.25,"6w_new":9.0,"6w_diff":-0.25,"note":""},{"id":339,"province":"ราชบุรี","district":"อ.ดำเนินสะดวก","location":"คุณสุคนธ์ โสไหวพริบ","distance":69.9,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":9.25,"6w_new":9.0,"6w_diff":-0.25,"note":""},{"id":340,"province":"ราชบุรี","district":"อ.ดำเนินสะดวก","location":"","distance":68.2,"4w_old":11.5,"4w_new":11.0,"4w_diff":-0.5,"6w_old":8.75,"6w_new":8.5,"6w_diff":-0.25,"note":""},{"id":341,"province":"ราชบุรี","district":"อ.บางแพ","location":"คุณเกรียงศักดิ์ ทาแกง1(บุญลือ)","distance":68.0,"4w_old":11.5,"4w_new":11.0,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":342,"province":"ราชบุรี","district":"อ.บางแพ","location":"","distance":51.4,"4w_old":11.5,"4w_new":11.0,"4w_diff":-0.5,"6w_old":8.75,"6w_new":8.5,"6w_diff":-0.25,"note":""},{"id":343,"province":"ราชบุรี","district":"อ.บ้านโป่ง","location":"คุณระวีวรรณ ยอดวัลลภ","distance":19.0,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":344,"province":"ราชบุรี","district":"อ.บ้านโป่ง","location":"บริษัท เจ วี พี (2016) จำกัด","distance":36.0,"4w_old":9.75,"4w_new":9.5,"4w_diff":-0.25,"6w_old":7.75,"6w_new":7.5,"6w_diff":-0.25,"note":""},{"id":345,"province":"ราชบุรี","district":"อ.บ้านโป่ง","location":"ฟาร์มมั่นคง","distance":30.0,"4w_old":9.75,"4w_new":9.5,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":346,"province":"ราชบุรี","district":"อ.บ้านโป่ง","location":"","distance":45.1,"4w_old":9.75,"4w_new":9.5,"4w_diff":-0.25,"6w_old":7.75,"6w_new":7.5,"6w_diff":-0.25,"note":""},{"id":347,"province":"ราชบุรี","district":"อ.ปากท่อ","location":"","distance":90.4,"4w_old":13.0,"4w_new":12.5,"4w_diff":-0.5,"6w_old":9.5,"6w_new":9.25,"6w_diff":-0.25,"note":""},{"id":348,"province":"ราชบุรี","district":"อ.วัดเพลง","location":"ร้านเฮียชัช","distance":90.0,"4w_old":11.5,"4w_new":11.0,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":349,"province":"ราชบุรี","district":"อ.วัดเพลง","location":"","distance":82.3,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":9.5,"6w_new":9.25,"6w_diff":-0.25,"note":""},{"id":350,"province":"ราชบุรี","district":"อ.สวนผึ้ง","location":"","distance":119.0,"4w_old":15.0,"4w_new":14.0,"4w_diff":-1.0,"6w_old":13.0,"6w_new":12.25,"6w_diff":-0.75,"note":""},{"id":351,"province":"ลพบุรี","district":"อ.เมืองลพบุรี","location":"","distance":168.0,"4w_old":25.5,"4w_new":23.75,"4w_diff":-1.75,"6w_old":16.5,"6w_new":15.5,"6w_diff":-1.0,"note":""},{"id":352,"province":"ลพบุรี","district":"อ.โคกเจริญ","location":"","distance":243.0,"4w_old":27.75,"4w_new":26.0,"4w_diff":-1.75,"6w_old":17.5,"6w_new":16.5,"6w_diff":-1.0,"note":""},{"id":353,"province":"ลพบุรี","district":"อ.โคกสำโรง","location":"","distance":216.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":17.5,"6w_new":16.5,"6w_diff":-1.0,"note":""},{"id":354,"province":"ลพบุรี","district":"อ.ชัยบาดาล","location":"ร้านตี๋ไก่ชน(ชัยบาดาล)","distance":239.0,"4w_old":27.75,"4w_new":26.0,"4w_diff":-1.75,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":355,"province":"ลพบุรี","district":"อ.ชัยบาดาล","location":"","distance":229.0,"4w_old":27.75,"4w_new":26.0,"4w_diff":-1.75,"6w_old":17.5,"6w_new":16.5,"6w_diff":-1.0,"note":""},{"id":356,"province":"ลพบุรี","district":"อ.ท่าวุ้ง","location":"","distance":159.0,"4w_old":21.75,"4w_new":20.25,"4w_diff":-1.5,"6w_old":15.25,"6w_new":14.25,"6w_diff":-1.0,"note":""},{"id":357,"province":"ลพบุรี","district":"อ.ท่าหลวง","location":"คุณศักรินทร์ บุญทิพย์","distance":229.0,"4w_old":27.75,"4w_new":26.0,"4w_diff":-1.75,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":358,"province":"ลพบุรี","district":"อ.ท่าหลวง","location":"","distance":217.0,"4w_old":27.75,"4w_new":26.0,"4w_diff":-1.75,"6w_old":17.5,"6w_new":16.5,"6w_diff":-1.0,"note":""},{"id":359,"province":"ลพบุรี","district":"อ.บ้านหมี่","location":"ร้านตี๋ไก่ชน(บ้านหมี่)","distance":163.0,"4w_old":24.0,"4w_new":22.5,"4w_diff":-1.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":360,"province":"ลพบุรี","district":"อ.บ้านหมี่","location":"","distance":187.0,"4w_old":24.0,"4w_new":22.5,"4w_diff":-1.5,"6w_old":16.5,"6w_new":15.5,"6w_diff":-1.0,"note":""},{"id":361,"province":"ลพบุรี","district":"อ.พัฒนานิคม","location":"ร้านคลังอาหารสัตว์","distance":180.0,"4w_old":22.75,"4w_new":21.25,"4w_diff":-1.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":362,"province":"ลพบุรี","district":"อ.พัฒนานิคม","location":"","distance":182.0,"4w_old":22.75,"4w_new":21.25,"4w_diff":-1.5,"6w_old":16.5,"6w_new":15.5,"6w_diff":-1.0,"note":""},{"id":363,"province":"ลพบุรี","district":"อ.ลำสนธิ","location":"","distance":260.0,"4w_old":40.0,"4w_new":37.25,"4w_diff":-2.75,"6w_old":21.0,"6w_new":19.75,"6w_diff":-1.25,"note":""},{"id":364,"province":"ลพบุรี","district":"อ.สระโบสถ์","location":"ห้างหุ้นส่วนจำกัด สำเร็จการเกษตร","distance":208.0,"4w_old":25.5,"4w_new":23.75,"4w_diff":-1.75,"6w_old":19.0,"6w_new":17.75,"6w_diff":-1.25,"note":""},{"id":365,"province":"ลพบุรี","district":"อ.สระโบสถ์","location":"","distance":216.0,"4w_old":25.5,"4w_new":23.75,"4w_diff":-1.75,"6w_old":17.5,"6w_new":16.5,"6w_diff":-1.0,"note":""},{"id":366,"province":"ลพบุรี","district":"อ.หนองม่วง","location":"","distance":237.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":17.5,"6w_new":16.5,"6w_diff":-1.0,"note":""},{"id":367,"province":"สมุทรปราการ","district":"กิ่ง อ.บางเสาธง","location":"","distance":128.0,"4w_old":21.75,"4w_new":20.25,"4w_diff":-1.5,"6w_old":13.75,"6w_new":13.0,"6w_diff":-0.75,"note":""},{"id":368,"province":"สมุทรปราการ","district":"อ.เมืองสมุทรปราการ","location":"ร้าน บ้านม่วง","distance":135.0,"4w_old":20.0,"4w_new":18.75,"4w_diff":-1.25,"6w_old":20.25,"6w_new":19.0,"6w_diff":-1.25,"note":"ใช้รถบิ๊คขนส่ง"},{"id":369,"province":"สมุทรปราการ","district":"อ.เมืองสมุทรปราการ","location":"","distance":119.0,"4w_old":20.25,"4w_new":19.0,"4w_diff":-1.25,"6w_old":13.75,"6w_new":13.0,"6w_diff":-0.75,"note":""},{"id":370,"province":"สมุทรปราการ","district":"อ.บางบ่อ","location":"","distance":132.0,"4w_old":20.25,"4w_new":19.0,"4w_diff":-1.25,"6w_old":13.75,"6w_new":13.0,"6w_diff":-0.75,"note":""},{"id":371,"province":"สมุทรปราการ","district":"อ.บางพลี","location":"","distance":122.0,"4w_old":19.0,"4w_new":17.75,"4w_diff":-1.25,"6w_old":13.75,"6w_new":13.0,"6w_diff":-0.75,"note":""},{"id":372,"province":"สมุทรปราการ","district":"อ.พระประแดง","location":"","distance":93.5,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":13.25,"6w_new":12.75,"6w_diff":-0.5,"note":""},{"id":373,"province":"สมุทรปราการ","district":"อ.พระสมุทรเจดีย์","location":"","distance":112.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":13.75,"6w_new":13.0,"6w_diff":-0.75,"note":""},{"id":374,"province":"สมุทรสงคราม","district":"อ.เมืองสมุทรสงคราม","location":"คุณฉลอง กวินเฟื่องฟูกุล","distance":98.0,"4w_old":14.5,"4w_new":14.0,"4w_diff":-0.5,"6w_old":12.75,"6w_new":12.25,"6w_diff":-0.5,"note":""},{"id":375,"province":"สมุทรสงคราม","district":"อ.เมืองสมุทรสงคราม","location":"","distance":89.8,"4w_old":15.5,"4w_new":14.75,"4w_diff":-0.75,"6w_old":10.75,"6w_new":10.25,"6w_diff":-0.5,"note":""},{"id":376,"province":"สมุทรสงคราม","district":"อ.บางคนฑี","location":"","distance":81.0,"4w_old":15.5,"4w_new":14.75,"4w_diff":-0.75,"6w_old":10.75,"6w_new":10.25,"6w_diff":-0.5,"note":""},{"id":377,"province":"สมุทรสงคราม","district":"อ.อัมพวา","location":"","distance":84.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":10.75,"6w_new":10.25,"6w_diff":-0.5,"note":""},{"id":378,"province":"สมุทรสาคร","district":"อ.เมืองสมุทรสาคร","location":"","distance":106.0,"4w_old":15.25,"4w_new":14.25,"4w_diff":-1.0,"6w_old":13.0,"6w_new":12.25,"6w_diff":-0.75,"note":""},{"id":379,"province":"สมุทรสาคร","district":"อ.เมืองสมุทรสาคร","location":"","distance":106.0,"4w_old":16.75,"4w_new":15.75,"4w_diff":-1.0,"6w_old":11.5,"6w_new":10.75,"6w_diff":-0.75,"note":""},{"id":380,"province":"สมุทรสาคร","district":"อ.กระทุ่มแบน","location":"","distance":67.8,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":11.5,"6w_new":11.0,"6w_diff":-0.5,"note":""},{"id":381,"province":"สมุทรสาคร","district":"อ.กระทุ่มแบน","location":"","distance":67.8,"4w_old":14.25,"4w_new":13.75,"4w_diff":-0.5,"6w_old":10.75,"6w_new":10.25,"6w_diff":-0.5,"note":""},{"id":382,"province":"สมุทรสาคร","district":"อ.บ้านแผ้ว","location":"","distance":58.6,"4w_old":13.5,"4w_new":13.0,"4w_diff":-0.5,"6w_old":11.5,"6w_new":11.0,"6w_diff":-0.5,"note":""},{"id":383,"province":"สมุทรสาคร","district":"อ.บ้านแผ้ว","location":"","distance":58.6,"4w_old":13.5,"4w_new":13.0,"4w_diff":-0.5,"6w_old":10.75,"6w_new":10.25,"6w_diff":-0.5,"note":""},{"id":384,"province":"สระแก้ว","district":"กิ่ง อ.โคกสูง","location":"","distance":340.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":27.75,"6w_new":26.0,"6w_diff":-1.75,"note":""},{"id":385,"province":"สระแก้ว","district":"กิ่ง อ.วังสมบูรณ์","location":"","distance":307.0,"4w_old":43.75,"4w_new":40.75,"4w_diff":-3.0,"6w_old":26.75,"6w_new":25.0,"6w_diff":-1.75,"note":""},{"id":386,"province":"สระแก้ว","district":"อ.เขาฉกรรจ์","location":"","distance":291.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":26.75,"6w_new":25.0,"6w_diff":-1.75,"note":""},{"id":387,"province":"สระแก้ว","district":"อ.เมืองสระแก้ว","location":"","distance":278.0,"4w_old":35.0,"4w_new":32.75,"4w_diff":-2.25,"6w_old":20.0,"6w_new":18.75,"6w_diff":-1.25,"note":""},{"id":388,"province":"สระแก้ว","district":"อ.คลองหาด","location":"","distance":314.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":24.25,"6w_new":22.75,"6w_diff":-1.5,"note":""},{"id":389,"province":"สระแก้ว","district":"อ.ตาพระยา","location":"","distance":359.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":27.75,"6w_new":26.0,"6w_diff":-1.75,"note":""},{"id":390,"province":"สระแก้ว","district":"อ.วังน้ำเย็น","location":"","distance":310.0,"4w_old":41.25,"4w_new":38.5,"4w_diff":-2.75,"6w_old":24.25,"6w_new":22.75,"6w_diff":-1.5,"note":""},{"id":391,"province":"สระแก้ว","district":"อ.วัฒนานคร","location":"","distance":304.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":23.25,"6w_new":21.75,"6w_diff":-1.5,"note":""},{"id":392,"province":"สระแก้ว","district":"อ.อรัญประเทศ","location":"","distance":327.0,"4w_old":43.75,"4w_new":40.75,"4w_diff":-3.0,"6w_old":24.25,"6w_new":22.75,"6w_diff":-1.5,"note":""},{"id":393,"province":"สระแก้ว","district":"อ.อรัญประเทศ","location":"พีเอ็นอะโกรเทรด","distance":335.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":27.75,"6w_new":26.0,"6w_diff":-1.75,"note":""},{"id":394,"province":"สระบุรี","district":"อ.เฉลิมพระเกียติ","location":"","distance":150.0,"4w_old":27.75,"4w_new":26.0,"4w_diff":-1.75,"6w_old":15.0,"6w_new":14.0,"6w_diff":-1.0,"note":""},{"id":395,"province":"สระบุรี","district":"อ.เมืองสระบุรี","location":"","distance":137.0,"4w_old":19.0,"4w_new":17.75,"4w_diff":-1.25,"6w_old":13.75,"6w_new":13.0,"6w_diff":-0.75,"note":""},{"id":396,"province":"สระบุรี","district":"อ.เสาไห้","location":"","distance":143.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":13.0,"6w_new":12.25,"6w_diff":-0.75,"note":""},{"id":397,"province":"สระบุรี","district":"อ.แก่งคอย","location":"","distance":148.0,"4w_old":21.75,"4w_new":20.25,"4w_diff":-1.5,"6w_old":13.75,"6w_new":13.0,"6w_diff":-0.75,"note":""},{"id":398,"province":"สระบุรี","district":"อ.ดอนพุด","location":"","distance":142.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":15.0,"6w_new":14.0,"6w_diff":-1.0,"note":""},{"id":399,"province":"สระบุรี","district":"อ.บ้านหมอ","location":"","distance":346.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":15.25,"6w_new":14.25,"6w_diff":-1.0,"note":""},{"id":400,"province":"สระบุรี","district":"อ.พระพุทธบาท","location":"","distance":165.0,"4w_old":20.25,"4w_new":19.0,"4w_diff":-1.25,"6w_old":15.25,"6w_new":14.25,"6w_diff":-1.0,"note":""},{"id":401,"province":"สระบุรี","district":"อ.มวกเหล็ก","location":"","distance":174.0,"4w_old":27.75,"4w_new":26.0,"4w_diff":-1.75,"6w_old":16.5,"6w_new":15.5,"6w_diff":-1.0,"note":""},{"id":402,"province":"สระบุรี","district":"อ.วังม่วง","location":"","distance":190.0,"4w_old":26.5,"4w_new":24.75,"4w_diff":-1.75,"6w_old":16.5,"6w_new":15.5,"6w_diff":-1.0,"note":""},{"id":403,"province":"สระบุรี","district":"อ.วิหารแดง","location":"","distance":137.0,"4w_old":20.25,"4w_new":19.0,"4w_diff":-1.25,"6w_old":13.0,"6w_new":12.25,"6w_diff":-0.75,"note":""},{"id":404,"province":"สระบุรี","district":"อ.หนองแค","location":"","distance":115.0,"4w_old":19.0,"4w_new":17.75,"4w_diff":-1.25,"6w_old":13.0,"6w_new":12.25,"6w_diff":-0.75,"note":""},{"id":405,"province":"สระบุรี","district":"อ.หนองแซง","location":"","distance":142.0,"4w_old":19.0,"4w_new":17.75,"4w_diff":-1.25,"6w_old":13.0,"6w_new":12.25,"6w_diff":-0.75,"note":""},{"id":406,"province":"สระบุรี","district":"อ.หนองโดน","location":"","distance":156.0,"4w_old":20.25,"4w_new":19.0,"4w_diff":-1.25,"6w_old":15.25,"6w_new":14.25,"6w_diff":-1.0,"note":""},{"id":407,"province":"สิงห์บุรี","district":"อ.เมืองสิงห์บุรี","location":"สิงห์บุรีอาหารสัตว์","distance":143.0,"4w_old":19.0,"4w_new":17.75,"4w_diff":-1.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":408,"province":"สิงห์บุรี","district":"อ.เมืองสิงห์บุรี","location":"","distance":168.0,"4w_old":20.25,"4w_new":19.0,"4w_diff":-1.25,"6w_old":15.25,"6w_new":14.25,"6w_diff":-1.0,"note":""},{"id":409,"province":"สิงห์บุรี","district":"อ.ค่ายบางระจัน","location":"","distance":165.0,"4w_old":19.0,"4w_new":17.75,"4w_diff":-1.25,"6w_old":15.25,"6w_new":14.25,"6w_diff":-1.0,"note":""},{"id":410,"province":"สิงห์บุรี","district":"อ.ท่าช้าง","location":"","distance":129.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":15.0,"6w_new":14.0,"6w_diff":-1.0,"note":""},{"id":411,"province":"สิงห์บุรี","district":"อ.บางระจัน","location":"ร้านคนรักเหมียว","distance":138.0,"4w_old":19.0,"4w_new":17.75,"4w_diff":-1.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":412,"province":"สิงห์บุรี","district":"อ.บางระจัน","location":"","distance":174.0,"4w_old":19.0,"4w_new":17.75,"4w_diff":-1.25,"6w_old":15.0,"6w_new":14.0,"6w_diff":-1.0,"note":""},{"id":413,"province":"สิงห์บุรี","district":"อ.พรหมบุรี","location":"","distance":150.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":15.0,"6w_new":14.0,"6w_diff":-1.0,"note":""},{"id":414,"province":"สิงห์บุรี","district":"อ.อินทร์บุรี","location":"ร้านอินทรีย์ทอง","distance":152.0,"4w_old":20.25,"4w_new":19.0,"4w_diff":-1.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":415,"province":"สิงห์บุรี","district":"อ.อินทร์บุรี","location":"ห้างหุ้นส่วนจำกัด จิดาภาเคมีเกษตร","distance":154.0,"4w_old":20.25,"4w_new":19.0,"4w_diff":-1.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":416,"province":"สิงห์บุรี","district":"อ.อินทร์บุรี","location":"","distance":182.0,"4w_old":20.25,"4w_new":19.0,"4w_diff":-1.25,"6w_old":15.25,"6w_new":14.25,"6w_diff":-1.0,"note":""},{"id":417,"province":"สุพรรณบุรี","district":"อ.เดิมบางนางบวช","location":"","distance":127.0,"4w_old":16.5,"4w_new":15.5,"4w_diff":-1.0,"6w_old":10.25,"6w_new":9.75,"6w_diff":-0.5,"note":""},{"id":418,"province":"สุพรรณบุรี","district":"อ.เดิมบางนางบวช","location":"ร้านต้นน้ำ ข้าวสาร อาหารสัตว์","distance":114.0,"4w_old":13.75,"4w_new":13.0,"4w_diff":-0.75,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":"ต่อรองราคา"},{"id":419,"province":"สุพรรณบุรี","district":"อ.เมืองสุพรรณบุรี","location":"คุณบัญชา คุณาศัย","distance":65.0,"4w_old":11.5,"4w_new":11.0,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":420,"province":"สุพรรณบุรี","district":"อ.เมืองสุพรรณบุรี","location":"ร้านวิบูลย์อาหารสัตว์","distance":81.0,"4w_old":11.5,"4w_new":11.0,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":421,"province":"สุพรรณบุรี","district":"อ.เมืองสุพรรณบุรี","location":"","distance":68.4,"4w_old":11.5,"4w_new":11.0,"4w_diff":-0.5,"6w_old":9.5,"6w_new":9.25,"6w_diff":-0.25,"note":""},{"id":422,"province":"สุพรรณบุรี","district":"อ.ดอนเจดีย์","location":"ร้านธัญธนาพาณิชย์","distance":81.0,"4w_old":13.0,"4w_new":12.5,"4w_diff":-0.5,"6w_old":10.0,"6w_new":9.5,"6w_diff":-0.5,"note":""},{"id":423,"province":"สุพรรณบุรี","district":"อ.ดอนเจดีย์","location":"ร้านส.เพิ่มพูน","distance":85.0,"4w_old":13.0,"4w_new":12.5,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":424,"province":"สุพรรณบุรี","district":"อ.ดอนเจดีย์","location":"","distance":91.3,"4w_old":13.0,"4w_new":12.5,"4w_diff":-0.5,"6w_old":9.5,"6w_new":9.25,"6w_diff":-0.25,"note":""},{"id":425,"province":"สุพรรณบุรี","district":"อ.ด่านช้าง","location":"","distance":130.0,"4w_old":19.0,"4w_new":17.75,"4w_diff":-1.25,"6w_old":10.25,"6w_new":9.75,"6w_diff":-0.5,"note":""},{"id":426,"province":"สุพรรณบุรี","district":"อ.บางปลาม้า","location":"เจดับบลิว อาหารสัตว์","distance":51.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":8.25,"6w_new":8.0,"6w_diff":-0.25,"note":""},{"id":427,"province":"สุพรรณบุรี","district":"อ.บางปลาม้า","location":"","distance":57.4,"4w_old":10.0,"4w_new":9.5,"4w_diff":-0.5,"6w_old":7.75,"6w_new":7.5,"6w_diff":-0.25,"note":""},{"id":428,"province":"สุพรรณบุรี","district":"อ.ศรีประจันต์","location":"","distance":97.3,"4w_old":13.0,"4w_new":12.5,"4w_diff":-0.5,"6w_old":10.75,"6w_new":10.25,"6w_diff":-0.5,"note":""},{"id":429,"province":"สุพรรณบุรี","district":"อ.ศรีประจันต์","location":"ร้านกาญจนาอาหารสัตว์","distance":85.0,"4w_old":13.0,"4w_new":12.5,"4w_diff":-0.5,"6w_old":10.75,"6w_new":10.25,"6w_diff":-0.5,"note":"ต่อรองราคา"},{"id":430,"province":"สุพรรณบุรี","district":"อ.สองพี่น้อง","location":"คุณกรกนก แซ่กี้","distance":29.0,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":431,"province":"สุพรรณบุรี","district":"อ.สองพี่น้อง","location":"คุณสุรีรัตน์","distance":36.4,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":432,"province":"สุพรรณบุรี","district":"อ.สองพี่น้อง","location":"คุณธนาวุฒิ คลาดแคล้วดี","distance":42.0,"4w_old":9.25,"4w_new":9.0,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":433,"province":"สุพรรณบุรี","district":"อ.สองพี่น้อง","location":"คุณธารทิพย์ อภิวงค์","distance":30.0,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":8.0,"6w_new":7.75,"6w_diff":-0.25,"note":""},{"id":434,"province":"สุพรรณบุรี","district":"อ.สองพี่น้อง","location":"คุณธีรยุทธ อมรชัยยาพิทักษ์","distance":22.0,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":8.0,"6w_new":7.75,"6w_diff":-0.25,"note":""},{"id":435,"province":"สุพรรณบุรี","district":"อ.สองพี่น้อง","location":"คุณวีนัส แก้วเรือง","distance":21.0,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":8.0,"6w_new":7.75,"6w_diff":-0.25,"note":""},{"id":436,"province":"สุพรรณบุรี","district":"อ.สองพี่น้อง","location":"คุณวีนัส แก้วเรือง(เจ๊ต๋า)","distance":18.0,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":437,"province":"สุพรรณบุรี","district":"อ.สองพี่น้อง","location":"คุณวีนัส แก้วเรือง(กิมไน้)","distance":20.0,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":438,"province":"สุพรรณบุรี","district":"อ.สองพี่น้อง","location":"คุณวีนัส แก้วเรือง(คุณโก๋ ลูกเล้า)","distance":19.0,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":439,"province":"สุพรรณบุรี","district":"อ.สองพี่น้อง","location":"คุณวีนัส แก้วเรือง(น้าจอม)","distance":21.0,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":440,"province":"สุพรรณบุรี","district":"อ.สองพี่น้อง","location":"คุณวีนัส แก้วเรือง(ฟาร์ม)","distance":21.0,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":441,"province":"สุพรรณบุรี","district":"อ.สองพี่น้อง","location":"คุณสมคิด สถิตย์กสิกรรม(ฟาร์ม)","distance":34.0,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":8.0,"6w_new":7.75,"6w_diff":-0.25,"note":""},{"id":442,"province":"สุพรรณบุรี","district":"อ.สองพี่น้อง","location":"คุณสิงห์เอก สันติบวรวงศ์","distance":31.5,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":8.0,"6w_new":7.75,"6w_diff":-0.25,"note":""},{"id":443,"province":"สุพรรณบุรี","district":"อ.สองพี่น้อง","location":"คุณสินีณัฐ สันติบวรวงศ์","distance":31.5,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":8.0,"6w_new":7.75,"6w_diff":-0.25,"note":""},{"id":444,"province":"สุพรรณบุรี","district":"อ.สองพี่น้อง","location":"คุณสุชาดา หมัดแม่น","distance":22.0,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":445,"province":"สุพรรณบุรี","district":"อ.สองพี่น้อง","location":"","distance":32.1,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":7.5,"6w_new":7.25,"6w_diff":-0.25,"note":""},{"id":446,"province":"สุพรรณบุรี","district":"อ.สามชุก","location":"คุณพัฒนินท์ อุดมภักดีพงศ์","distance":99.0,"4w_old":13.5,"4w_new":13.0,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":447,"province":"สุพรรณบุรี","district":"อ.สามชุก","location":"ร้านวินอาหารสัตว์ และไก่ชน","distance":97.0,"4w_old":13.5,"4w_new":13.0,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":448,"province":"สุพรรณบุรี","district":"อ.สามชุก","location":"","distance":105.0,"4w_old":13.75,"4w_new":13.0,"4w_diff":-0.75,"6w_old":10.25,"6w_new":9.75,"6w_diff":-0.5,"note":""},{"id":449,"province":"สุพรรณบุรี","district":"อ.หนองหญ้าไซ","location":"คุณฉวีวรรณ จูมโสดา(ร้านเอ็กซ์อาหารสัตว์)","distance":99.0,"4w_old":14.25,"4w_new":13.75,"4w_diff":-0.5,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":450,"province":"สุพรรณบุรี","district":"อ.หนองหญ้าไซ","location":"ร้านอภิชาติ อาหารและยาสัตว์","distance":112.0,"4w_old":15.0,"4w_new":14.0,"4w_diff":-1.0,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":451,"province":"สุพรรณบุรี","district":"อ.หนองหญ้าไซ","location":"","distance":111.0,"4w_old":15.0,"4w_new":14.0,"4w_diff":-1.0,"6w_old":10.25,"6w_new":9.75,"6w_diff":-0.5,"note":""},{"id":452,"province":"สุพรรณบุรี","district":"อ.อู่ทอง","location":"ไทยฟู้ดส์อาหารสัตว์(สุพรรณบุรี)","distance":32.0,"4w_old":9.0,"4w_new":8.75,"4w_diff":-0.25,"6w_old":0.0,"6w_new":0.0,"6w_diff":0.0,"note":""},{"id":453,"province":"สุพรรณบุรี","district":"อ.อู่ทอง","location":"","distance":56.1,"4w_old":10.0,"4w_new":9.5,"4w_diff":-0.5,"6w_old":7.75,"6w_new":7.5,"6w_diff":-0.25,"note":""},{"id":454,"province":"อ่างทอง","district":"อ.เมืองอ่างทอง","location":"","distance":117.0,"4w_old":16.75,"4w_new":15.75,"4w_diff":-1.0,"6w_old":13.75,"6w_new":13.0,"6w_diff":-0.75,"note":""},{"id":455,"province":"อ่างทอง","district":"อ.แสวงหา","location":"บริษัท เอสวายเจ. กู๊ดเดย์ จำกัด","distance":129.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":14.0,"6w_new":13.25,"6w_diff":-0.75,"note":""},{"id":456,"province":"อ่างทอง","district":"อ.แสวงหา","location":"","distance":129.0,"4w_old":13.75,"4w_new":13.0,"4w_diff":-0.75,"6w_old":10.25,"6w_new":9.75,"6w_diff":-0.5,"note":""},{"id":457,"province":"อ่างทอง","district":"อ.โพธิ์ทอง","location":"คุณเถลิงศักดิ์ สมบุญ","distance":110.0,"4w_old":17.75,"4w_new":16.75,"4w_diff":-1.0,"6w_old":15.0,"6w_new":14.0,"6w_diff":-1.0,"note":""},{"id":458,"province":"อ่างทอง","district":"อ.โพธิ์ทอง","location":"","distance":115.0,"4w_old":17.75,"4w_new":16.75,"4w_diff":-1.0,"6w_old":13.75,"6w_new":13.0,"6w_diff":-0.75,"note":""},{"id":459,"province":"อ่างทอง","district":"อ.ไชโย","location":"","distance":134.0,"4w_old":17.75,"4w_new":16.75,"4w_diff":-1.0,"6w_old":13.75,"6w_new":13.0,"6w_diff":-0.75,"note":""},{"id":460,"province":"อ่างทอง","district":"อ.ป่าโมก","location":"","distance":106.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":13.75,"6w_new":13.0,"6w_diff":-0.75,"note":""},{"id":461,"province":"อ่างทอง","district":"อ.วิเศษชัยชาญ","location":"","distance":105.0,"4w_old":13.75,"4w_new":13.0,"4w_diff":-0.75,"6w_old":10.25,"6w_new":9.75,"6w_diff":-0.5,"note":""},{"id":462,"province":"อ่างทอง","district":"อ.สามโก้","location":"","distance":95.2,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":9.5,"6w_new":9.25,"6w_diff":-0.25,"note":""},{"id":463,"province":"อุทัยธานี","district":"อ.เมืองอุทัยธานี","location":"อุทัยอาหารสัตว์","distance":174.0,"4w_old":25.5,"4w_new":23.75,"4w_diff":-1.75,"6w_old":15.25,"6w_new":14.25,"6w_diff":-1.0,"note":"ใช้รถบิ๊คขนส่ง"},{"id":464,"province":"อุทัยธานี","district":"อ.เมืองอุทัยธานี","location":"","distance":190.0,"4w_old":25.5,"4w_new":23.75,"4w_diff":-1.75,"6w_old":15.25,"6w_new":14.25,"6w_diff":-1.0,"note":""},{"id":465,"province":"อุทัยธานี","district":"อ.ทัพทัน","location":"ร้านสินทวี (สมบูรณ์ฟาร์ม)","distance":195.0,"4w_old":29.0,"4w_new":27.0,"4w_diff":-2.0,"6w_old":17.25,"6w_new":16.25,"6w_diff":-1.0,"note":""},{"id":466,"province":"อุทัยธานี","district":"อ.ทัพทัน","location":"","distance":209.0,"4w_old":29.0,"4w_new":27.0,"4w_diff":-2.0,"6w_old":16.5,"6w_new":15.5,"6w_diff":-1.0,"note":""},{"id":467,"province":"อุทัยธานี","district":"อ.บ้านไร่","location":"จำเนียรพาณิชย์","distance":166.0,"4w_old":22.75,"4w_new":21.25,"4w_diff":-1.5,"6w_old":15.0,"6w_new":14.0,"6w_diff":-1.0,"note":""},{"id":468,"province":"อุทัยธานี","district":"อ.บ้านไร่","location":"","distance":115.0,"4w_old":22.75,"4w_new":21.25,"4w_diff":-1.5,"6w_old":13.75,"6w_new":13.0,"6w_diff":-0.75,"note":""},{"id":469,"province":"อุทัยธานี","district":"อ.ลานสัก","location":"","distance":208.0,"4w_old":29.0,"4w_new":27.0,"4w_diff":-2.0,"6w_old":15.25,"6w_new":14.25,"6w_diff":-1.0,"note":""},{"id":470,"province":"อุทัยธานี","district":"อ.สว่างอารมณ์","location":"","distance":283.0,"4w_old":29.0,"4w_new":27.0,"4w_diff":-2.0,"6w_old":16.5,"6w_new":15.5,"6w_diff":-1.0,"note":""},{"id":471,"province":"อุทัยธานี","district":"อ.หนองขาหย่าง","location":"","distance":256.0,"4w_old":29.0,"4w_new":27.0,"4w_diff":-2.0,"6w_old":14.0,"6w_new":13.25,"6w_diff":-0.75,"note":""},{"id":472,"province":"อุทัยธานี","district":"อ.หนองฉาง","location":"ร้านสินทวี (ร้าน หนองฉาง)","distance":188.0,"4w_old":29.0,"4w_new":27.0,"4w_diff":-2.0,"6w_old":16.75,"6w_new":15.75,"6w_diff":-1.0,"note":""},{"id":473,"province":"อุทัยธานี","district":"อ.หนองฉาง","location":"","distance":199.0,"4w_old":29.0,"4w_new":27.0,"4w_diff":-2.0,"6w_old":15.25,"6w_new":14.25,"6w_diff":-1.0,"note":""},{"id":474,"province":"อุทัยธานี","district":"อ.ห้วยคต","location":"","distance":187.0,"4w_old":24.0,"4w_new":22.5,"4w_diff":-1.5,"6w_old":15.25,"6w_new":14.25,"6w_diff":-1.0,"note":""},{"id":475,"province":"อุทัยธานี","district":"อ.ห้วยคต","location":"ร้านสินทวี (นฤมล)","distance":176.0,"4w_old":24.0,"4w_new":22.5,"4w_diff":-1.5,"6w_old":16.75,"6w_new":15.75,"6w_diff":-1.0,"note":""},{"id":476,"province":"อุทัยธานี","district":"","location":"ร้านสินทวี (สมบูรณ์ฟาร์ม พ่วง นฤมล พ่วง หนองฉาง)","distance":195.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":17.5,"6w_new":16.5,"6w_diff":-1.0,"note":""},{"id":477,"province":"อุทัยธานี","district":"","location":"ร้านสินทวี (สมบูรณ์ฟาร์ม พ่วง นฤมล)","distance":195.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":17.5,"6w_new":16.5,"6w_diff":-1.0,"note":""},{"id":478,"province":"อุทัยธานี","district":"","location":"ร้านสินทวี (หนองฉาง พ่วง นฤมล)","distance":188.0,"4w_old":0.0,"4w_new":0.0,"4w_diff":0.0,"6w_old":17.5,"6w_new":16.5,"6w_diff":-1.0,"note":""}],"farm_data":[{"name":"บจก.หมูไทย ห้วยยางโทน","distance":110.0,"6w_old":11.75,"6w_new":11.0,"6w_diff":-0.75,"note":""},{"name":"เอสเจเอฟ ฟาร์ม-หนองตากยา","distance":65.0,"6w_old":10.5,"6w_new":10.0,"6w_diff":-0.5,"note":""},{"name":"เอสเจเอฟ ฟาร์ม-เบิกไพร","distance":80.0,"6w_old":11.25,"6w_new":10.75,"6w_diff":-0.5,"note":""},{"name":"บจก.หมูไทย ฟาร์มวันครู1","distance":80.0,"6w_old":11.25,"6w_new":10.75,"6w_diff":-0.5,"note":""},{"name":"บจก.หมูไทย ฟาร์มวันครู2","distance":80.0,"6w_old":11.25,"6w_new":10.75,"6w_diff":-0.5,"note":""},{"name":"JBF-ปฐมฟาร์ม","distance":40.0,"6w_old":8.25,"6w_new":8.0,"6w_diff":-0.25,"note":""},{"name":"JBF-พีทีพิกฟาร์ม","distance":65.0,"6w_old":10.0,"6w_new":9.5,"6w_diff":-0.5,"note":""},{"name":"JBF-พีทีจีเนติกส์","distance":61.0,"6w_old":10.0,"6w_new":9.5,"6w_diff":-0.5,"note":""},{"name":"JBF-ฟาร์มทับเจริญ","distance":237.0,"6w_old":18.75,"6w_new":17.5,"6w_diff":-1.25,"note":""},{"name":"JBF-เสถียรฟาร์ม","distance":82.0,"6w_old":11.25,"6w_new":10.75,"6w_diff":-0.5,"note":""},{"name":"JBF-เอสเจเอฟ ฟาร์ม เขาเป้ง","distance":80.0,"6w_old":10.5,"6w_new":10.0,"6w_diff":-0.5,"note":""},{"name":"JBF-น้องนนท์ฟาร์ม","distance":91.0,"6w_old":11.25,"6w_new":10.75,"6w_diff":-0.5,"note":""},{"name":"JBF-น้องนนท์ฟาร์ม แม่พันธุ์","distance":91.0,"6w_old":11.25,"6w_new":10.75,"6w_diff":-0.5,"note":""},{"name":"JBF-พรประจวบ","distance":183.0,"6w_old":17.75,"6w_new":16.75,"6w_diff":-1.0,"note":""},{"name":"JBF-พระลักษณ์ฟาร์ม","distance":96.0,"6w_old":11.25,"6w_new":10.75,"6w_diff":-0.5,"note":""},{"name":"JBF-พี่น้องฟาร์ม1","distance":96.0,"6w_old":11.25,"6w_new":10.75,"6w_diff":-0.5,"note":""},{"name":"JBF-พี่น้องฟาร์ม2","distance":96.0,"6w_old":11.25,"6w_new":10.75,"6w_diff":-0.5,"note":""},{"name":"JBF-เขาน้อย","distance":88.0,"6w_old":10.0,"6w_new":9.5,"6w_diff":-0.5,"note":""},{"name":"JBF-ตั้งฮะเส็ง","distance":48.0,"6w_old":8.25,"6w_new":8.0,"6w_diff":-0.25,"note":""},{"name":"JBF-สุขเดือนห้า","distance":143.0,"6w_old":14.75,"6w_new":13.75,"6w_diff":-1.0,"note":""},{"name":"บจก.ไวต้า-สมุทรปราการ","distance":136.0,"6w_old":0.37781700000000007,"6w_new":0.35,"6w_diff":-0.02781700000000009,"note":"ราคาค่าขนส่งวัตถุดิบ"},{"name":"คาร์กิลสยาม-นครปฐม","distance":40.0,"6w_old":0.19845000000000002,"6w_new":0.19,"6w_diff":-0.008450000000000013,"note":""},{"name":"คาร์กิลสยาม-ฉะเชิงเทรา","distance":132.0,"6w_old":0.41216400000000003,"6w_new":0.38,"6w_diff":-0.032164000000000026,"note":""},{"name":"คาร์กิลสยาม-นครราชสีมา","distance":275.0,"6w_old":0.7327360000000002,"6w_new":0.68,"6w_diff":-0.052736000000000116,"note":""},{"name":"คาร์กิลสยาม-ปราจีนบุรี","distance":244.0,"6w_old":0.57245,"6w_new":0.53,"6w_diff":-0.04244999999999999,"note":""},{"name":"สหฟาร์ม","distance":200.0,"6w_old":0.6182460000000002,"6w_new":0.57,"6w_diff":-0.04824600000000023,"note":""},{"name":"สามพรานฟาร์ม","distance":60.5,"6w_old":0.22050000000000003,"6w_new":0.21,"6w_diff":-0.010500000000000037,"note":""},{"name":"ธวัชชัยฟาร์ม","distance":103.0,"6w_old":0.34347000000000005,"6w_new":0.32,"6w_diff":-0.023470000000000046,"note":""},{"name":"ไทยฟู๊ดส์ สุพรรณบุรี","distance":31.8,"6w_old":0.297675,"6w_new":0.28,"6w_diff":-0.017674999999999996,"note":""},{"name":"บจก.หมูไทย","distance":110.0,"6w_old":0.34347000000000005,"6w_new":0.32,"6w_diff":-0.023470000000000046,"note":""},{"name":"บจก.วี.ซี.เอฟ. กรุ๊ป","distance":101.0,"6w_old":0.34347000000000005,"6w_new":0.32,"6w_diff":-0.023470000000000046,"note":""},{"name":"ไทยฟู๊ดส์ ปราจีนบุรี","distance":263.0,"6w_old":0.57245,"6w_new":0.53,"6w_diff":-0.04244999999999999,"note":""}]};
+
+// ========= STATE =========
+const STORAGE_KEY = 'shippingRateData_v1';
+// เปลี่ยนค่านี้ทุกครั้งที่อัปเดตข้อมูลใหม่ (เช่น วันที่อัปเดต) เพื่อให้ทุกเครื่อง
+// ดึงข้อมูลใหม่จากไฟล์ทันที โดยไม่ใช้ข้อมูลเก่าที่ค้างอยู่ใน localStorage
+const BUILD_VERSION = '16/06/69-38.80';
+
+function loadAppData() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // ใช้ข้อมูลที่ค้างไว้ใน localStorage ได้ ก็ต่อเมื่อเป็นข้อมูลจากไฟล์เวอร์ชันเดียวกันเท่านั้น
+      // ถ้าไฟล์ถูกอัปเดตใหม่ (BUILD_VERSION เปลี่ยน) ให้ทิ้งของเก่าและใช้ข้อมูลใหม่ที่ฝังมากับไฟล์เสมอ
+      if (parsed && parsed.provinceData && parsed.provinceData.length > 0 && parsed.buildVersion === BUILD_VERSION) {
+        // เติม field ที่อาจไม่มีในข้อมูลเก่า
+        if (!parsed.dieselPrice) parsed.dieselPrice = '38.80';
+        if (!parsed.updateDate) parsed.updateDate = '16/06/69';
+        if (!parsed.farmData) parsed.farmData = RAW_DATA.farm_data;
+        return parsed;
+      }
+    }
+  } catch(e) {}
+  return {
+    provinceData: RAW_DATA.province_data,
+    farmData: RAW_DATA.farm_data,
+    customerData: [],
+    dieselPrice: '38.80',
+    updateDate: '16/06/69',
+    isCustom: false,
+    buildVersion: BUILD_VERSION
+  };
+}
+
+function saveToStorage() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
+
+function clearStorage() {
+  try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
+}
+
+let appData = loadAppData();
+
+const PAGE_SIZE = 50;
+let provincePage = 1;
+let farmPage = 1;
+
+// ========= INIT =========
+function init() {
+  updateBadges();
+  updateCustomDataBanner();
+  populateProvinceDropdown();
+  renderProvinceTable();
+  renderFarmTable();
+  updateStats();
+}
+
+function updateCustomDataBanner() {
+  const banner = document.getElementById('customDataBanner');
+  if (appData.isCustom) {
+    banner.style.display = 'flex';
+    document.getElementById('customDataLabel').textContent = `📂 ใช้ข้อมูลที่อัพโหลด: ${appData.uploadedFileName || 'ไฟล์ที่นำเข้า'} (${appData.updateDate})`;
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+function updateBadges() {
+  document.getElementById('dieselBadge').textContent = '⛽ ดีเซล ' + appData.dieselPrice + ' บ./ลิตร';
+  document.getElementById('updateBadge').textContent = '📅 อัปเดต ' + appData.updateDate;
+}
+
+function updateStats() {
+  const provinces = new Set(appData.provinceData.map(r => r.province));
+  const districts = new Set(appData.provinceData.map(r => r.province + '|' + r.district));
+  const withCustomer = appData.provinceData.filter(r => r.location).length;
+  document.getElementById('statProvinces').textContent = provinces.size;
+  document.getElementById('statDistricts').textContent = districts.size;
+  document.getElementById('statCustomers').textContent = withCustomer;
+  document.getElementById('statFarms').textContent = appData.farmData.length;
+}
+
+// ========= PROVINCE TAB =========
+function populateProvinceDropdown() {
+  const sel = document.getElementById('provinceSelect');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">-- ทุกจังหวัด --</option>';
+  const provinces = [...new Set(appData.provinceData.map(r => r.province))].sort();
+  provinces.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p; opt.textContent = p;
+    sel.appendChild(opt);
+  });
+  sel.value = current;
+}
+
+function onProvinceChange() {
+  const province = document.getElementById('provinceSelect').value;
+  const dSel = document.getElementById('districtSelect');
+  dSel.innerHTML = '<option value="">-- ทุกอำเภอ --</option>';
+  if (province) {
+    const districts = [...new Set(appData.provinceData.filter(r => r.province === province).map(r => r.district))].sort();
+    districts.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d; opt.textContent = d;
+      dSel.appendChild(opt);
+    });
+  }
+  provincePage = 1;
+  renderProvinceTable();
+}
+
+function resetProvinceFilter() {
+  document.getElementById('provinceSelect').value = '';
+  document.getElementById('districtSelect').innerHTML = '<option value="">-- ทุกอำเภอ --</option>';
+  document.getElementById('locationSearch').value = '';
+  provincePage = 1;
+  renderProvinceTable();
+}
+
+function getProvinceFiltered() {
+  const province = document.getElementById('provinceSelect').value;
+  const district = document.getElementById('districtSelect').value;
+  const search = document.getElementById('locationSearch').value.toLowerCase().trim();
+  return appData.provinceData.filter(r => {
+    if (province && r.province !== province) return false;
+    if (district && r.district !== district) return false;
+    if (search && !r.district.toLowerCase().includes(search) && !r.location.toLowerCase().includes(search) && !r.province.toLowerCase().includes(search)) return false;
+    return true;
+  });
+}
+
+function renderProvinceTable() {
+  const filtered = getProvinceFiltered();
+  const total = filtered.length;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  if (provincePage > totalPages) provincePage = 1;
+  const start = (provincePage - 1) * PAGE_SIZE;
+  const rows = filtered.slice(start, start + PAGE_SIZE);
+
+  const endIdx = Math.min(start + PAGE_SIZE, total);
+  document.getElementById('provinceCount').textContent = total === 0 ? 'ไม่พบข้อมูล' : `แสดง ${start+1}–${endIdx} จาก ${total} รายการ`;
+
+  const fmt = v => v > 0 ? v.toFixed(2) : '-';
+  const fmtDiff = v => v > 0 ? `+${v.toFixed(2)}` : '';
+
+  // === TABLE (desktop) ===
+  const tbody = document.getElementById('provinceTableBody');
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" class="no-data">ไม่พบข้อมูลที่ค้นหา</td></tr>';
+    document.getElementById('provinceCardList').innerHTML = '<div class="card-no-data">ไม่พบข้อมูลที่ค้นหา</div>';
+    document.getElementById('provincePagination').innerHTML = '';
+    return;
+  }
+  tbody.innerHTML = rows.map((r, i) => {
+    const hasCustomer = r.location && r.location !== '';
+    const customerBadge = hasCustomer ? `<span class="customer-tag">ลูกค้า</span>` : '';
+    const locationText = hasCustomer ? `<b>${escHtml(r.location)}</b>` : '<span class="zero">-</span>';
+    const fmtH = v => v > 0 ? v.toFixed(2) : '<span class="zero">-</span>';
+    const fmtDH = v => v > 0 ? `<span class="price-diff">+${v.toFixed(2)}</span>` : '';
+    return `<tr class="${hasCustomer ? 'has-customer' : ''}">
+      <td>${start + i + 1}</td>
+      <td class="left"><span class="badge-province">${escHtml(r.province)}</span></td>
+      <td class="left"><span class="badge-district">${escHtml(r.district)}</span></td>
+      <td class="left">${locationText}${customerBadge}</td>
+      <td>${r.distance > 0 ? r.distance : '<span class="zero">-</span>'}</td>
+      <td>${fmtH(r['4w_old'])}</td>
+      <td class="price-new">${fmtH(r['4w_new'])} ${fmtDH(r['4w_diff'])}</td>
+      <td>${fmtH(r['6w_old'])}</td>
+      <td class="price-new">${fmtH(r['6w_new'])} ${fmtDH(r['6w_diff'])}</td>
+      <td class="left" style="font-size:0.78rem;color:#718096">${escHtml(r.note || '')}</td>
+    </tr>`;
+  }).join('');
+
+  // === CARDS (mobile) ===
+  const cardList = document.getElementById('provinceCardList');
+  cardList.innerHTML = rows.map((r, i) => {
+    const hasCustomer = r.location && r.location !== '';
+    return `<div class="data-card ${hasCustomer ? 'has-customer' : ''}">
+      <div class="card-header">
+        <div>
+          <div class="card-title">${escHtml(r.district)}${hasCustomer ? ` <span class="customer-tag">ลูกค้า</span>` : ''}</div>
+          ${hasCustomer ? `<div class="card-subtitle">📍 ${escHtml(r.location)}</div>` : ''}
+        </div>
+        <span class="badge-province" style="flex-shrink:0">${escHtml(r.province)}</span>
+      </div>
+      <div class="card-prices">
+        ${r['4w_new'] > 0 ? `<div class="price-box blue">
+          <div class="pb-label">🚛 รถ 4 ล้อ</div>
+          <div class="pb-old">${fmt(r['4w_old'])}</div>
+          <div class="pb-new">${fmt(r['4w_new'])} <small style="color:#e53e3e;font-weight:400">${fmtDiff(r['4w_diff'])}</small></div>
+        </div>` : ''}
+        ${r['6w_new'] > 0 ? `<div class="price-box green">
+          <div class="pb-label">🚚 รถ 6-10 ล้อ</div>
+          <div class="pb-old">${fmt(r['6w_old'])}</div>
+          <div class="pb-new">${fmt(r['6w_new'])} <small style="color:#e53e3e;font-weight:400">${fmtDiff(r['6w_diff'])}</small></div>
+        </div>` : ''}
+      </div>
+      ${r.distance > 0 ? `<div class="card-meta"><span>📏 ระยะทาง ${r.distance} กม.</span>${r.note ? `<span>📝 ${escHtml(r.note)}</span>` : ''}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  renderPagination('provincePagination', provincePage, totalPages, (p) => { provincePage = p; renderProvinceTable(); });
+}
+
+// ========= FARM TAB =========
+function getFarmFiltered() {
+  const search = document.getElementById('farmSearch').value.toLowerCase().trim();
+  return appData.farmData.filter(r => !search || r.name.toLowerCase().includes(search));
+}
+
+function renderFarmTable() {
+  const filtered = getFarmFiltered();
+  const total = filtered.length;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  if (farmPage > totalPages) farmPage = 1;
+  const start = (farmPage - 1) * PAGE_SIZE;
+  const rows = filtered.slice(start, start + PAGE_SIZE);
+
+  const endIdx = Math.min(start + PAGE_SIZE, total);
+  document.getElementById('farmCount').textContent = total === 0 ? 'ไม่พบข้อมูล' : `แสดง ${start+1}–${endIdx} จาก ${total} รายการ`;
+
+  const fmt = v => v > 0 ? v.toFixed(2) : '-';
+  const fmtH = v => v > 0 ? v.toFixed(2) : '<span class="zero">-</span>';
+  const fmtDiff = v => v > 0 ? `+${v.toFixed(2)}` : '';
+  const fmtDH = v => v > 0 ? `<span class="price-diff">+${v.toFixed(2)}</span>` : '';
+
+  // TABLE
+  const tbody = document.getElementById('farmTableBody');
+  tbody.innerHTML = rows.map((r, i) => `<tr>
+    <td>${start + i + 1}</td>
+    <td class="left"><b>${escHtml(r.name)}</b></td>
+    <td>${r.distance > 0 ? r.distance : '<span class="zero">-</span>'}</td>
+    <td>${fmtH(r['6w_old'])}</td>
+    <td class="price-new">${fmtH(r['6w_new'])}</td>
+    <td>${fmtDH(r['6w_diff'])}</td>
+    <td class="left" style="font-size:0.78rem;color:#718096">${escHtml(r.note || '')}</td>
+  </tr>`).join('') || '<tr><td colspan="7" class="no-data">ไม่พบข้อมูล</td></tr>';
+
+  // CARDS
+  const cardList = document.getElementById('farmCardList');
+  cardList.innerHTML = rows.length === 0 ? '<div class="card-no-data">ไม่พบข้อมูล</div>' :
+    rows.map((r, i) => `<div class="data-card" style="border-left-color:#276749">
+      <div class="card-header">
+        <div class="card-title">🐷 ${escHtml(r.name)}</div>
+        ${r.distance > 0 ? `<span style="background:#f0fff4;color:#276749;border-radius:6px;padding:2px 8px;font-size:0.78rem;font-weight:600;flex-shrink:0">${r.distance} กม.</span>` : ''}
+      </div>
+      <div class="card-prices">
+        <div class="price-box green">
+          <div class="pb-label">🚚 รถ 6-10 ล้อ (ราคาเดิม)</div>
+          <div class="pb-new" style="color:#718096;font-size:0.92rem">${fmt(r['6w_old'])}</div>
+        </div>
+        <div class="price-box green">
+          <div class="pb-label">🚚 รถ 6-10 ล้อ (ราคาใหม่)</div>
+          <div class="pb-new">${fmt(r['6w_new'])} <small style="color:#e53e3e;font-weight:400">${fmtDiff(r['6w_diff'])}</small></div>
+        </div>
+      </div>
+      ${r.note ? `<div class="card-meta"><span>📝 ${escHtml(r.note)}</span></div>` : ''}
+    </div>`).join('');
+
+  renderPagination('farmPagination', farmPage, totalPages, (p) => { farmPage = p; renderFarmTable(); });
+}
+
+// ========= PAGINATION =========
+function renderPagination(elId, current, total, callback) {
+  const el = document.getElementById(elId);
+  if (total <= 1) { el.innerHTML = ''; return; }
+  let html = `<span class="page-info">หน้า ${current} / ${total}</span>`;
+  if (current > 1) html += `<button class="page-btn" onclick="(${callback.toString()})(${current-1})">‹ ก่อน</button>`;
+  const start = Math.max(1, current - 2), end = Math.min(total, current + 2);
+  for (let p = start; p <= end; p++) {
+    html += `<button class="page-btn ${p===current?'active':''}" onclick="(${callback.toString()})(${p})">${p}</button>`;
+  }
+  if (current < total) html += `<button class="page-btn" onclick="(${callback.toString()})(${current+1})">ถัดไป ›</button>`;
+  el.innerHTML = html;
+}
+
+// ========= TABS =========
+function switchTab(tab) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ========= UPLOAD MODAL =========
+function openUploadModal() {
+  document.getElementById('uploadModal').classList.add('show');
+}
+function closeUploadModal() {
+  document.getElementById('uploadModal').classList.remove('show');
+}
+function handleFileDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file);
+}
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) processFile(file);
+  e.target.value = '';
+}
+
+function processFile(file) {
+  if (!file.name.match(/\.xlsx?$/i)) {
+    showStatus('error', 'กรุณาเลือกไฟล์ Excel (.xlsx หรือ .xls) เท่านั้น');
+    closeUploadModal();
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const sheets = wb.SheetNames;
+      
+      // Parse sheet 1 - province
+      let provinceData = [];
+      if (sheets.length > 0) {
+        const ws1 = wb.Sheets[sheets[0]];
+        const arr1 = XLSX.utils.sheet_to_json(ws1, { header: 1 });
+        // Find header row (row with ลำดับ, จังหวัด, อำเภอ)
+        let headerIdx = -1;
+        for (let i = 0; i < Math.min(10, arr1.length); i++) {
+          if (arr1[i] && arr1[i].includes('จังหวัด') && arr1[i].includes('อำเภอ')) {
+            headerIdx = i; break;
+          }
+        }
+        if (headerIdx >= 0) {
+          const headers = arr1[headerIdx];
+          const idxMap = {
+            id: headers.indexOf('ลำดับ'),
+            province: headers.indexOf('จังหวัด'),
+            district: headers.indexOf('อำเภอ'),
+            location: headers.indexOf('สถานที่จัดส่ง'),
+            distance: headers.indexOf('ระยะทาง')
+          };
+          // Find 4ล้อและ 6ล้อ columns
+          let col4old = -1, col4new = -1, col4diff = -1, col6old = -1, col6new = -1, col6diff = -1, colNote = -1;
+          headers.forEach((h, i) => {
+            if (h && h.toString().includes('4 ล้อ') && h.toString().includes('ราคาเดิม')) col4old = i;
+            if (h && h.toString().includes('4 ล้อ') && h.toString().includes('ราคาใหม่')) col4new = i;
+            if (h && h.toString().includes('6 ล้อ') && h.toString().includes('ราคาเดิม')) col6old = i;
+            if (h && h.toString().includes('6 ล้อ') && h.toString().includes('ราคาใหม่')) col6new = i;
+            if (h && h.toString() === 'ส่วนต่าง' && col4diff === -1) col4diff = i;
+            if (h && h.toString().includes('ส่วนต่าง') && col4diff !== -1 && col6diff === -1 && i !== col4diff) col6diff = i;
+            if (h && h.toString().includes('หมายเหตุ')) colNote = i;
+          });
+          
+          let lastProv = '';
+          for (let i = headerIdx + 1; i < arr1.length; i++) {
+            const row = arr1[i];
+            if (!row || !row[idxMap.id]) continue;
+            const idVal = String(row[idxMap.id]).replace('.0','');
+            if (!/^\d+$/.test(idVal)) continue;
+            const prov = row[idxMap.province] ? String(row[idxMap.province]) : lastProv;
+            if (prov) lastProv = prov;
+            provinceData.push({
+              id: parseInt(idVal),
+              province: lastProv,
+              district: row[idxMap.district] ? String(row[idxMap.district]) : '',
+              location: row[idxMap.location] ? String(row[idxMap.location]) : '',
+              distance: parseFloat(row[idxMap.distance]) || 0,
+              '4w_old': col4old >= 0 ? (parseFloat(row[col4old]) || 0) : 0,
+              '4w_new': col4new >= 0 ? (parseFloat(row[col4new]) || 0) : 0,
+              '4w_diff': col4diff >= 0 ? (parseFloat(row[col4diff]) || 0) : 0,
+              '6w_old': col6old >= 0 ? (parseFloat(row[col6old]) || 0) : 0,
+              '6w_new': col6new >= 0 ? (parseFloat(row[col6new]) || 0) : 0,
+              '6w_diff': col6diff >= 0 ? (parseFloat(row[col6diff]) || 0) : 0,
+              note: colNote >= 0 && row[colNote] ? String(row[colNote]) : ''
+            });
+          }
+        }
+      }
+
+      // Parse farm & customer (sheets 2 & 3) - simplified
+      let farmData = [], customerData = [];
+      
+      const parseSimpleSheet = (wsName, col4old, col4new, col4diff, col6old, col6new, col6diff, colNote) => {
+        if (!wb.Sheets[wsName]) return [];
+        const arr = XLSX.utils.sheet_to_json(wb.Sheets[wsName], { header: 1 });
+        const result = [];
+        for (let i = 4; i < arr.length; i++) {
+          const row = arr[i];
+          if (!row || !row[0]) continue;
+          const idVal = String(row[0]).replace('.0','');
+          if (!/^\d+$/.test(idVal)) continue;
+          result.push({
+            id: parseInt(idVal),
+            name: row[1] ? String(row[1]) : '',
+            distance: parseFloat(row[2]) || 0,
+            '4w_old': col4old >= 0 ? (parseFloat(row[col4old]) || 0) : 0,
+            '4w_new': col4new >= 0 ? (parseFloat(row[col4new]) || 0) : 0,
+            '4w_diff': col4diff >= 0 ? (parseFloat(row[col4diff]) || 0) : 0,
+            '6w_old': parseFloat(row[col6old]) || 0,
+            '6w_new': parseFloat(row[col6new]) || 0,
+            '6w_diff': parseFloat(row[col6diff]) || 0,
+            note: row[colNote] ? String(row[colNote]) : ''
+          });
+        }
+        return result;
+      };
+
+      if (sheets.length > 1) farmData = parseSimpleSheet(sheets[1], -1, -1, -1, 5, 10, 11, 12);
+      if (sheets.length > 2) customerData = parseSimpleSheet(sheets[2], 3, 10, 11, 12, 17, 18, 19);
+
+      // Try to extract diesel price and update date from row 0 of sheet 1
+      let dieselPrice = appData.dieselPrice;
+      let updateDate = appData.updateDate;
+      if (sheets.length > 0) {
+        const ws1 = wb.Sheets[sheets[0]];
+        const arr1 = XLSX.utils.sheet_to_json(ws1, { header: 1 });
+        if (arr1[0]) {
+          arr1[0].forEach(cell => {
+            if (cell) {
+              const s = String(cell);
+              const dieselMatch = s.match(/ดีเซล([\d.]+)/);
+              if (dieselMatch) dieselPrice = dieselMatch[1];
+              const dateMatch = s.match(/up\s*([\d\/]+)/i);
+              if (dateMatch) updateDate = dateMatch[1];
+            }
+          });
+        }
+      }
+
+      // Update app data
+      appData.provinceData = provinceData.length > 0 ? provinceData : appData.provinceData;
+      appData.farmData = farmData.length > 0 ? farmData : appData.farmData;
+      appData.customerData = customerData.length > 0 ? customerData : appData.customerData;
+      appData.dieselPrice = dieselPrice;
+      appData.updateDate = updateDate;
+      appData.isCustom = true;
+      appData.uploadedFileName = file.name;
+
+      // บันทึกลง localStorage เพื่อให้คงอยู่เมื่อเปิดใหม่
+      const saved = saveToStorage();
+
+      closeUploadModal();
+      updateBadges();
+      updateCustomDataBanner();
+      updateStats();
+      populateProvinceDropdown();
+      provincePage = 1; farmPage = 1;
+      renderProvinceTable();
+      renderFarmTable();
+      const saveMsg = saved ? ' และบันทึกถาวรแล้ว 💾' : ' (ไม่สามารถบันทึกถาวรได้)';
+      showStatus('success', `✅ โหลดข้อมูลสำเร็จ${saveMsg} — จังหวัด ${new Set(provinceData.map(r=>r.province)).size} จังหวัด | ฟาร์ม ${farmData.length} แห่ง`);
+    } catch(err) {
+      closeUploadModal();
+      showStatus('error', '❌ เกิดข้อผิดพลาดในการอ่านไฟล์: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function resetToOriginal() {
+  if (!confirm('ต้องการกลับเป็นข้อมูลเดิม (ข้อมูลที่ฝังมากับไฟล์) ใช่หรือไม่?')) return;
+  clearStorage();
+  appData = {
+    provinceData: RAW_DATA.province_data,
+    farmData: RAW_DATA.farm_data,
+    customerData: [],
+    dieselPrice: '38.80',
+    updateDate: '16/06/69',
+    isCustom: false,
+    buildVersion: BUILD_VERSION
+  };
+  updateBadges();
+  updateCustomDataBanner();
+  updateStats();
+  populateProvinceDropdown();
+  provincePage = 1; farmPage = 1;
+  renderProvinceTable();
+  renderFarmTable();
+  showStatus('success', '↩️ กลับเป็นข้อมูลเดิมเรียบร้อยแล้ว');
+}
+
+function showStatus(type, msg) {
+  const el = document.getElementById('uploadStatus');
+  el.className = 'upload-status ' + type;
+  el.textContent = msg;
+  setTimeout(() => { el.className = 'upload-status'; }, 8000);
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Click outside modal to close
+document.getElementById('uploadModal').addEventListener('click', function(e) {
+  if (e.target === this) closeUploadModal();
+});
+
+// Init
+init();
+</script>
+</body>
+</html>
